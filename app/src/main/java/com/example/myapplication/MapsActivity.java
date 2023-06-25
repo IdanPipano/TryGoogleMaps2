@@ -17,8 +17,10 @@ import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.example.myapplication.databinding.ActivityMapsBinding;
+import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.android.gms.tasks.OnSuccessListener;
 
@@ -48,6 +50,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     // hi zalle
     private static final int MY_LOCATION_REQUEST_CODE = 99;  // Unique request code
     String MAPS_API_KEY = "AIzaSyBfX2PxYcxF3B-i9PNUwR-ocrhDEdD0MnA";
+    private Polyline previousPolyline;
+    private Marker previousDestinationMarker;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -119,11 +123,18 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mMap.setOnMapClickListener(new GoogleMap.OnMapClickListener() {
             @Override
             public void onMapClick(LatLng point) {
+                //delete previous routes:
+                if (previousPolyline != null)
+                    previousPolyline.remove();
+                if (previousDestinationMarker != null)
+                    previousDestinationMarker.remove();
+
+
                 // Add a marker at the clicked location
                 MarkerOptions markerOptions = new MarkerOptions();
                 markerOptions.position(point);
                 markerOptions.title("Destination");
-                mMap.addMarker(markerOptions);
+                previousDestinationMarker = mMap.addMarker(markerOptions);
 
                 // Get the current location and create a route
                 if (ContextCompat.checkSelfPermission(MapsActivity.this, Manifest.permission.ACCESS_FINE_LOCATION)
@@ -268,8 +279,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             parserTask.execute(result);
         }
 
-
-
         /** A class to parse the Google Places in JSON format */
         private class ParserTask extends AsyncTask<String, Integer, List<List<HashMap<String,String>>>> {
 
@@ -326,7 +335,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
                 // Drawing polyline in the Google Map for the i-th route
                 if(lineOptions != null) {
-                    mMap.addPolyline(lineOptions);
+                    previousPolyline = mMap.addPolyline(lineOptions);
                 }
             }
         }
@@ -368,6 +377,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                                     path.add(hm);
                                 }
                             }
+                            //Toast.makeText(getApplicationContext(), "Distance: "+path.size(), Toast.LENGTH_SHORT).show();
                             routes.add(path);
                         }
                     }
