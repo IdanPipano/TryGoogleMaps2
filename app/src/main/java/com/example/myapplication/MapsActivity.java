@@ -21,11 +21,13 @@ import com.chaquo.python.android.AndroidPlatform;
 import com.google.android.gms.common.api.Status;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.example.myapplication.databinding.ActivityMapsBinding;
@@ -90,27 +92,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
 
         //Search location things:
-        SearchView searchView = findViewById(R.id.searchView_location);
-
-        searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
-            @Override
-            public boolean onQueryTextSubmit(String query) {
-                String location = searchView.getQuery().toString();
-
-                if (location != null && !location.equals("")) {
-                    new GeocodeAsyncTask(MapsActivity.this).execute(location);
-                }
-
-                return false;
-            }
-
-            @Override
-            public boolean onQueryTextChange(String newText) {
-                return false;
-            }
-        });
-
-
         if (!Places.isInitialized()) {
             Places.initialize(getApplicationContext(), MAPS_API_KEY);
         }
@@ -128,7 +109,27 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             @Override
             public void onPlaceSelected(@NonNull Place place) {
                 // TODO: Get info about the selected place.
-                Log.i("wtf", "Place: " + place.getName() + ", " + place.getLatLng());
+                Log.i("wtf", "Place: " + place.getName() + ", " + place.getLatLng() + ", Openning hours: " + place.getOpeningHours() + ", Phone: " + place.getPhoneNumber());
+
+                if (ContextCompat.checkSelfPermission(MapsActivity.this, Manifest.permission.ACCESS_FINE_LOCATION)
+                        == PackageManager.PERMISSION_GRANTED) {
+                    FusedLocationProviderClient fusedLocationClient = LocationServices.getFusedLocationProviderClient(MapsActivity.this);
+                    fusedLocationClient.getLastLocation().addOnSuccessListener(MapsActivity.this, new OnSuccessListener<Location>() {
+                        @Override
+                        public void onSuccess(Location location) {
+                            if (location != null) {
+                                LatLng origin = new LatLng(location.getLatitude(), location.getLongitude());
+
+                                // Call a method to create a route
+                                drawRoutePutMarker(origin, place.getLatLng());
+//                                Toast.makeText(getApplicationContext(), "Distance: "+distance/1000+" km", Toast.LENGTH_SHORT).show();
+                            }
+                            else {
+                                Log.d("wtf", "location null");
+                            }
+                        }
+                    });
+                }
             }
 
             @Override
@@ -200,24 +201,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
 
-
-
-
         mMap.setOnMapClickListener(new GoogleMap.OnMapClickListener() {
             @Override
             public void onMapClick(LatLng point) {
-                //delete previous routes:
-                if (previousPolyline != null)
-                    previousPolyline.remove();
-                if (previousDestinationMarker != null)
-                    previousDestinationMarker.remove();
-
-
-                // Add a marker at the clicked location
-                MarkerOptions markerOptions = new MarkerOptions();
-                markerOptions.position(point);
-                markerOptions.title("Destination");
-                previousDestinationMarker = mMap.addMarker(markerOptions);
 
                 // Get the current location and create a route
                 if (ContextCompat.checkSelfPermission(MapsActivity.this, Manifest.permission.ACCESS_FINE_LOCATION)
@@ -230,7 +216,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                                 LatLng origin = new LatLng(location.getLatitude(), location.getLongitude());
 
                                 // Call a method to create a route
-                                drawRoute(origin, point);
+                                drawRoutePutMarker(origin, point);
 //                                Toast.makeText(getApplicationContext(), "Distance: "+distance/1000+" km", Toast.LENGTH_SHORT).show();
                             }
                             else {
@@ -241,12 +227,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 }
             }
         });
-
-
-
-
-
-
 
 
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
@@ -265,7 +245,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                                 if (location != null) {
                                     // Move the camera to the user's location and zoom in
                                     mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(location.getLatitude(), location.getLongitude()), initialZoom));
-
                                     // todo (Add a marker at the user's location)
 //                                    mMap.addMarker(new MarkerOptions()
 //                                            .position(new LatLng(location.getLatitude(), location.getLongitude()))
@@ -282,16 +261,54 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             //TODO
         }
 
-
-        // Add a marker in Sydney and move the camera
-//        LatLng sydney = new LatLng(-34, 151);
-//        mMap.addMarker(new MarkerOptions().position(sydney).title("Marker in Sydney"));
-////
-//        LatLng technion = new LatLng(32, 35);
-//        mMap.addMarker(new MarkerOptions().position(technion).title("Marker in technion"));
-//        mMap.moveCamera(CameraUpdateFactory.newLatLng(technion));
     }
 
+
+
+    private void drawRoutePutMarker(LatLng origin, LatLng destination) {
+        //delete previous routes:
+        if (previousPolyline != null)
+            previousPolyline.remove();
+        if (previousDestinationMarker != null)
+            previousDestinationMarker.remove();
+
+
+        // Add a marker at the clicked location
+        MarkerOptions markerOptions = new MarkerOptions();
+        markerOptions.position(destination);
+        markerOptions.title("Destination");
+        previousDestinationMarker = mMap.addMarker(markerOptions);
+
+//        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(destination, initialZoom));
+        moveCamera(origin, destination);
+
+        drawRoute(origin, destination);
+
+    }
+
+    private void moveCamera(LatLng... places){
+        /*
+        Move the camera so that all the given places will be visible to the user.
+         */
+        // Create the builder and add your locations
+        LatLngBounds.Builder builder = new LatLngBounds.Builder();
+        for (LatLng place:
+             places) {
+            builder.include(place);
+
+        }
+
+        // Create the bounds
+        LatLngBounds bounds = builder.build();
+
+        // Create a camera update with a padding of 100 pixels from the edges of the map
+        int padding = 250;
+        CameraUpdate cu = CameraUpdateFactory.newLatLngBounds(bounds, padding);
+
+        // Move the camera
+        mMap.moveCamera(cu);
+
+    }
 
     private void drawRoute(LatLng origin, LatLng destination) {
         String url = getDirectionsUrl(origin, destination);
@@ -414,7 +431,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     // Adding all the points in the route to LineOptions
                     lineOptions.addAll(points);
                     lineOptions.width(10);
-                    lineOptions.color(Color.RED);
+                    lineOptions.color(Color.parseColor("#bd34eb"));
                 }
 
                 // Drawing polyline in the Google Map for the i-th route
