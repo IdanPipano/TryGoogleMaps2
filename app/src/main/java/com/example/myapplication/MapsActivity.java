@@ -11,6 +11,9 @@ import android.location.Location;
 import android.os.AsyncTask;
 import android.os.Bundle;
 
+import com.chaquo.python.PyObject;
+import com.chaquo.python.Python;
+import com.chaquo.python.android.AndroidPlatform;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.CameraUpdateFactory;
@@ -60,6 +63,20 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         binding = ActivityMapsBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
+
+        //Python things:
+        if (!Python.isStarted()) {
+            Python.start(new AndroidPlatform(this));
+        }
+
+        Python py = Python.getInstance();
+        PyObject pyObject = py.getModule("test");
+
+        PyObject pyObject1 = pyObject.callAttr("will_it_work");
+
+        Toast.makeText(this, pyObject1.toString(), Toast.LENGTH_LONG).show();
+
+
 
 //        // Obtain the SupportMapFragment and get notified when the map is ready to be used.
 //        SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
