@@ -1,12 +1,16 @@
 package com.example.myapplication;
 
 
+import androidx.annotation.NonNull;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentActivity;
 
+import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.location.Address;
+import android.location.Geocoder;
 import android.location.Location;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -14,6 +18,7 @@ import android.os.Bundle;
 import com.chaquo.python.PyObject;
 import com.chaquo.python.Python;
 import com.chaquo.python.android.AndroidPlatform;
+import com.google.android.gms.common.api.Status;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.CameraUpdateFactory;
@@ -27,9 +32,14 @@ import com.example.myapplication.databinding.ActivityMapsBinding;
 import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.android.libraries.places.api.Places;
+import com.google.android.libraries.places.api.model.Place;
+import com.google.android.libraries.places.widget.AutocompleteSupportFragment;
+import com.google.android.libraries.places.widget.listener.PlaceSelectionListener;
 
 import android.Manifest;
 import android.util.Log;
+import android.widget.SearchView;
 import android.widget.Toast;
 
 import org.json.JSONArray;
@@ -43,6 +53,7 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 
@@ -56,6 +67,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private Polyline previousPolyline;
     private Marker previousDestinationMarker;
     private double distance;
+    private final int initialZoom = 17;  // the greater this number, the closer the initial zoom
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -75,6 +87,59 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         PyObject pyObject1 = pyObject.callAttr("will_it_work");
 
         Toast.makeText(this, pyObject1.toString(), Toast.LENGTH_LONG).show();
+
+
+        //Search location things:
+        SearchView searchView = findViewById(R.id.searchView_location);
+
+        searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+            @Override
+            public boolean onQueryTextSubmit(String query) {
+                String location = searchView.getQuery().toString();
+
+                if (location != null && !location.equals("")) {
+                    new GeocodeAsyncTask(MapsActivity.this).execute(location);
+                }
+
+                return false;
+            }
+
+            @Override
+            public boolean onQueryTextChange(String newText) {
+                return false;
+            }
+        });
+
+
+        if (!Places.isInitialized()) {
+            Places.initialize(getApplicationContext(), MAPS_API_KEY);
+        }
+
+        // Initialize the AutocompleteSupportFragment.
+        AutocompleteSupportFragment autocompleteFragment = (AutocompleteSupportFragment)
+                getSupportFragmentManager().findFragmentById(R.id.autocomplete_fragment);
+
+// Specify the types of place data to return.
+        autocompleteFragment.setPlaceFields(Arrays.asList(Place.Field.ID, Place.Field.NAME,
+                Place.Field.LAT_LNG, Place.Field.PHONE_NUMBER, Place.Field.OPENING_HOURS));
+
+// Set up a PlaceSelectionListener to handle the response.
+        autocompleteFragment.setOnPlaceSelectedListener(new PlaceSelectionListener() {
+            @Override
+            public void onPlaceSelected(@NonNull Place place) {
+                // TODO: Get info about the selected place.
+                Log.i("wtf", "Place: " + place.getName() + ", " + place.getLatLng());
+            }
+
+            @Override
+            public void onError(@NonNull Status status) {
+                // TODO: Handle the error.
+                Log.i("wtf", "An error occurred: " + status);
+            }
+        });
+
+
+
 
 
 
@@ -199,7 +264,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                                 // Got last known location. In some rare situations this can be null.
                                 if (location != null) {
                                     // Move the camera to the user's location and zoom in
-                                    mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(location.getLatitude(), location.getLongitude()), 13));
+                                    mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(location.getLatitude(), location.getLongitude()), initialZoom));
 
                                     // todo (Add a marker at the user's location)
 //                                    mMap.addMarker(new MarkerOptions()
@@ -232,7 +297,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         String url = getDirectionsUrl(origin, destination);
 
         DownloadTask downloadTask = new DownloadTask();
-
+        Log.d("wtf", "before execute: " + url);
         // Start downloading json data from Google Directions API
         downloadTask.execute(url);
         Log.d("wtf", url);
@@ -519,7 +584,54 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
 
 
+
+
+
+
+        private class GeocodeAsyncTask extends AsyncTask<String, Void, List<Address>> {
+
+        private Geocoder geocoder;
+
+        public GeocodeAsyncTask(Context context) {
+            geocoder = new Geocoder(context);
+        }
+
+        @Override
+        protected List<Address> doInBackground(String... locations) {
+            List<Address> addressList = null;
+            String location = locations[0];
+
+            try {
+                addressList = geocoder.getFromLocationName(location, 10);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+            return addressList;
+        }
+
+        @Override
+        protected void onPostExecute(List<Address> addressList) {
+            // runs from the UI thread
+            if (addressList != null && !addressList.isEmpty()) {
+                Address address = addressList.get(0);
+                LatLng latLng = new LatLng(address.getLatitude(), address.getLongitude());
+                mMap.addMarker(new MarkerOptions().position(latLng).title("destination"));
+                mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, initialZoom));
+            } else {
+                // Handle case where no location found
+            }
+        }
+    }
+
 }
+
+
+
+
+
+
+
 
 
 
