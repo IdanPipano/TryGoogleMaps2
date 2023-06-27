@@ -1,5 +1,6 @@
 package com.example.myapplication;
 
+
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentActivity;
@@ -42,7 +43,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-
 public class MapsActivity extends FragmentActivity implements OnMapReadyCallback {
 
     private GoogleMap mMap;
@@ -52,6 +52,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     String MAPS_API_KEY = "AIzaSyBfX2PxYcxF3B-i9PNUwR-ocrhDEdD0MnA";
     private Polyline previousPolyline;
     private Marker previousDestinationMarker;
+    private double distance;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -148,6 +149,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
                                 // Call a method to create a route
                                 drawRoute(origin, point);
+//                                Toast.makeText(getApplicationContext(), "Distance: "+distance/1000+" km", Toast.LENGTH_SHORT).show();
                             }
                             else {
                                 Log.d("wtf", "location null");
@@ -337,6 +339,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 if(lineOptions != null) {
                     previousPolyline = mMap.addPolyline(lineOptions);
                 }
+
+                Toast.makeText(getApplicationContext(), "Distance: "+distance/1000+" km", Toast.LENGTH_SHORT).show();
             }
         }
 
@@ -354,6 +358,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
                     jRoutes = jObject.getJSONArray("routes");
 
+                    double totalDistance = 0.0;
+
                     /** Traversing all routes */
                     for(int i=0;i<jRoutes.length();i++){
                         jLegs = ( (JSONObject)jRoutes.get(i)).getJSONArray("legs");
@@ -362,6 +368,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                         /** Traversing all legs */
                         for(int j=0;j<jLegs.length();j++){
                             jSteps = ( (JSONObject)jLegs.get(j)).getJSONArray("steps");
+                            JSONObject Jdistance = ( (JSONObject)jLegs.get(j)).getJSONObject("distance");
+                            totalDistance += Jdistance.getDouble("value");
 
                             /** Traversing all steps */
                             for(int k=0;k<jSteps.length();k++){
@@ -375,11 +383,18 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                                     hm.put("lat", Double.toString((list.get(l)).latitude) );
                                     hm.put("lng", Double.toString((list.get(l)).longitude) );
                                     path.add(hm);
+
+//                                    if (l > 0) {
+//                                        LatLng prevPoint = list.get(l - 1);
+//                                        LatLng currPoint = list.get(l);
+//                                        distance += calculateDistance(prevPoint, currPoint);
+//                                    }
                                 }
                             }
-                            //Toast.makeText(getApplicationContext(), "Distance: "+path.size(), Toast.LENGTH_SHORT).show();
                             routes.add(path);
                         }
+
+                        distance = totalDistance;
                     }
 
                 } catch (JSONException e) {
@@ -387,9 +402,21 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 }catch (Exception e){
                     e.printStackTrace();
                 }
-
                 return routes;
             }
+            private double calculateDistance(LatLng startPoint, LatLng endPoint) {
+                Location location1 = new Location("locationA");
+                location1.setLatitude(startPoint.latitude);
+                location1.setLongitude(startPoint.longitude);
+
+                Location location2 = new Location("locationB");
+                location2.setLatitude(endPoint.latitude);
+                location2.setLongitude(endPoint.longitude);
+
+                double distance = location1.distanceTo(location2);
+                return distance;
+            }
+
 
             /**
              * Method to decode polyline points
