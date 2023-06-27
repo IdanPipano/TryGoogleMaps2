@@ -100,11 +100,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         AutocompleteSupportFragment autocompleteFragment = (AutocompleteSupportFragment)
                 getSupportFragmentManager().findFragmentById(R.id.autocomplete_fragment);
 
-// Specify the types of place data to return.
+        // Specify the types of place data to return.
         autocompleteFragment.setPlaceFields(Arrays.asList(Place.Field.ID, Place.Field.NAME,
                 Place.Field.LAT_LNG, Place.Field.PHONE_NUMBER, Place.Field.OPENING_HOURS));
 
-// Set up a PlaceSelectionListener to handle the response.
+        // Set up a PlaceSelectionListener to handle the response.
         autocompleteFragment.setOnPlaceSelectedListener(new PlaceSelectionListener() {
             @Override
             public void onPlaceSelected(@NonNull Place place) {
@@ -132,6 +132,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 }
             }
 
+
             @Override
             public void onError(@NonNull Status status) {
                 // TODO: Handle the error.
@@ -139,15 +140,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             }
         });
 
-
-
-
-
-
-//        // Obtain the SupportMapFragment and get notified when the map is ready to be used.
-//        SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
-//                .findFragmentById(R.id.map);
-//        mapFragment.getMapAsync(this);
 
         // Check if we have the necessary permissions
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
@@ -280,7 +272,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         previousDestinationMarker = mMap.addMarker(markerOptions);
 
 //        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(destination, initialZoom));
-        moveCamera(origin, destination);
+        //moveCamera(origin, destination);
 
         drawRoute(origin, destination);
 
@@ -437,6 +429,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 // Drawing polyline in the Google Map for the i-th route
                 if(lineOptions != null) {
                     previousPolyline = mMap.addPolyline(lineOptions);
+                    moveCamera(points.toArray(new LatLng[0]));
                 }
 
                 Toast.makeText(getApplicationContext(), "Distance: "+distance/1000+" km", Toast.LENGTH_SHORT).show();
