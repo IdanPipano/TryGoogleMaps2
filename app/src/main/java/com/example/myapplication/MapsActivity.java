@@ -42,6 +42,7 @@ import com.google.android.libraries.places.widget.listener.PlaceSelectionListene
 import android.Manifest;
 import android.util.Log;
 import android.widget.SearchView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import org.json.JSONArray;
@@ -258,6 +259,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
 
     private void drawRoutePutMarker(LatLng origin, LatLng destination) {
+
         //delete previous routes:
         if (previousPolyline != null)
             previousPolyline.remove();
@@ -433,6 +435,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 }
 
                 Toast.makeText(getApplicationContext(), "Distance: "+distance/1000+" km", Toast.LENGTH_SHORT).show();
+                //Display in TextView the distance:
+                TextView txtView = findViewById(R.id.simpleTextView);
+                txtView.setText("You have " + distance/1000 + " km left");
             }
         }
 
