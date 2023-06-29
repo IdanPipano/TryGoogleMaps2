@@ -6,7 +6,13 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentActivity;
 
+import android.app.Activity;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
+import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.location.Address;
@@ -40,6 +46,10 @@ import com.google.android.libraries.places.widget.AutocompleteSupportFragment;
 import com.google.android.libraries.places.widget.listener.PlaceSelectionListener;
 
 import android.Manifest;
+import android.os.IBinder;
+import android.text.Spannable;
+import android.text.SpannableStringBuilder;
+import android.text.style.ForegroundColorSpan;
 import android.util.Log;
 import android.widget.SearchView;
 import android.widget.TextView;
@@ -60,7 +70,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 
-public class MapsActivity extends FragmentActivity implements OnMapReadyCallback {
+public class MapsActivity extends FragmentActivity implements OnMapReadyCallback, ServiceConnection, SerialListener {
 
     private GoogleMap mMap;
     private ActivityMapsBinding binding;
@@ -72,9 +82,38 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private double distance;
     private final int initialZoom = 17;  // the greater this number, the closer the initial zoom
 
+
+
+    private BluetoothAdapter bluetoothAdapter;
+    final private String deviceAddress = "94:B5:55:23:E9:36";
+    private SerialService service;
+    private enum Connected { False, Pending, True }
+    private Connected connected = Connected.False;
+    private boolean initialStart = true;
+
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        if(service != null)
+            service.attach(this);
+        else{
+            this.startService(new Intent(this, SerialService.class)); // prevents service destroy on unbind from recreated activity caused by orientation change
+            this.bindService(new Intent(this, SerialService.class), this, Context.BIND_AUTO_CREATE);
+        }
+
+
+    }
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        if(this.getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH)){
+            bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+            Log.d("wtf", "after bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();");
+        }
 
         binding = ActivityMapsBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
@@ -308,10 +347,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         String url = getDirectionsUrl(origin, destination);
 
         DownloadTask downloadTask = new DownloadTask();
-        Log.d("wtf", "before execute: " + url);
         // Start downloading json data from Google Directions API
         downloadTask.execute(url);
-        Log.d("wtf", url);
     }
 
     private String getDirectionsUrl(LatLng origin, LatLng dest){
@@ -338,6 +375,87 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         String url = "https://maps.googleapis.com/maps/api/directions/" + output + "?" + parameters;
 
         return url;
+    }
+
+    @Override
+    public void onServiceConnected(ComponentName componentName, IBinder iBinder) {
+        service = ((SerialService.SerialBinder) iBinder).getService();
+        service.attach(this);
+//        if(initialStart && isResumed()) {
+        if(initialStart) {
+            initialStart = false;
+//            this.runOnUiThread(this::connect);
+            connect();
+        }
+    }
+
+    private void connect() {
+        try {
+            BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+            BluetoothDevice device = bluetoothAdapter.getRemoteDevice(deviceAddress);
+            status("connecting...");
+            connected = Connected.Pending;
+            SerialSocket socket = new SerialSocket(this.getApplicationContext(), device);
+            service.connect(socket);
+        } catch (Exception e) {
+            onSerialConnectError(e);
+        }
+    }
+
+    private void status(String str) {
+//        SpannableStringBuilder spn = new SpannableStringBuilder(str + '\n');
+//        spn.setSpan(new ForegroundColorSpan(getResources().getColor(R.color.colorStatusText)), 0, spn.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+//        receiveText.append(spn);
+    }
+
+    @Override
+    public void onServiceDisconnected(ComponentName componentName) {
+        service = null;
+    }
+
+    @Override
+    public void onSerialConnect() {
+        status("connected");
+        connected = Connected.True;
+    }
+
+    @Override
+    public void onSerialConnectError(Exception e) {
+        status("connection failed: " + e.getMessage());
+        disconnect();
+    }
+
+    private void disconnect() {
+        connected = Connected.False;
+        service.disconnect();
+    }
+
+    @Override
+    public void onSerialRead(byte[] data) {
+        String dataString;
+        Log.d("wtf", "in onSerialRead " + (dataString = new String(data)));
+        if (0 == dataString.length()){
+            Log.d("wtf", "in SerialService onSerialRead(), 0 == dataString.length()");
+            return;
+        }
+        String[] stringAcc = (new String(data)).split(",");
+        try {
+            float[] acc = new float[stringAcc.length];  // x, y, z, t
+            for (int i = 0; i < stringAcc.length; i++) {
+                acc[i] = Float.parseFloat(stringAcc[i]);
+                Log.d("wtf", acc[i] + "");
+            }
+        }
+       catch (Exception e){
+            Log.d("wtf", "onSerialRead Exception occurred!");
+        }
+
+    }
+
+    @Override
+    public void onSerialIoError(Exception e) {
+        status("connection lost: " + e.getMessage());
+        disconnect();
     }
 
 
