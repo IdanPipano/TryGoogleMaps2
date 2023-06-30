@@ -46,6 +46,7 @@ import com.google.android.libraries.places.widget.AutocompleteSupportFragment;
 import com.google.android.libraries.places.widget.listener.PlaceSelectionListener;
 
 import android.Manifest;
+import android.os.Handler;
 import android.os.IBinder;
 import android.text.Spannable;
 import android.text.SpannableStringBuilder;
@@ -79,6 +80,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     String MAPS_API_KEY = "AIzaSyBfX2PxYcxF3B-i9PNUwR-ocrhDEdD0MnA";
     private Polyline previousPolyline;
     private Marker previousDestinationMarker;
+    private LatLng currentDestination;
     private double distance;
     private final int initialZoom = 17;  // the greater this number, the closer the initial zoom
 
@@ -90,6 +92,39 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private enum Connected { False, Pending, True }
     private Connected connected = Connected.False;
     private boolean initialStart = true;
+    private String dist2Dest;  // Distance in format "xxx km" or "xx m"
+
+
+    Handler handler = new Handler();
+    //a runnable that once activated measures distance to destination every 2 seconds
+    Runnable runnableCode = new Runnable() {
+        @Override
+        public void run() {
+            // Do something here on the main thread
+            Log.d("wtf", "happens every 2 seconds");
+            if (ContextCompat.checkSelfPermission(MapsActivity.this, Manifest.permission.ACCESS_FINE_LOCATION)
+                    == PackageManager.PERMISSION_GRANTED) {
+                FusedLocationProviderClient fusedLocationClient = LocationServices.getFusedLocationProviderClient(MapsActivity.this);
+                fusedLocationClient.getLastLocation().addOnSuccessListener(MapsActivity.this, new OnSuccessListener<Location>() {
+                    @Override
+                    public void onSuccess(Location location) {
+                        if (location != null) {
+                            LatLng origin = new LatLng(location.getLatitude(), location.getLongitude());
+                            Log.d("wtf", "" + origin.latitude + ", " + origin.longitude);
+                            (new FetchDistanceTask()).execute(origin, currentDestination);
+                        }
+                        else {
+                            Log.d("wtf", "location null");
+                        }
+                    }
+                });
+            }
+            // Repeat this runnable code block again every 2 seconds
+            handler.postDelayed(this, 2000);
+        }
+    };
+
+
 
 
     @Override
@@ -105,6 +140,25 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     }
 
+    private LatLng getCurrentLocation(){
+        final LatLng[] currentLocation = new LatLng[1];
+        if (ContextCompat.checkSelfPermission(MapsActivity.this, Manifest.permission.ACCESS_FINE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED) {
+            FusedLocationProviderClient fusedLocationClient = LocationServices.getFusedLocationProviderClient(MapsActivity.this);
+            fusedLocationClient.getLastLocation().addOnSuccessListener(MapsActivity.this, new OnSuccessListener<Location>() {
+                @Override
+                public void onSuccess(Location location) {
+                    if (location != null) {
+                        currentLocation[0] = new LatLng(location.getLatitude(), location.getLongitude());
+                    }
+                    else {
+                        Log.d("wtf", "location null");
+                    }
+                }
+            });
+        }
+        return currentLocation[0];
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -161,7 +215,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                                 LatLng origin = new LatLng(location.getLatitude(), location.getLongitude());
 
                                 // Call a method to create a route
-                                drawRoutePutMarker(origin, place.getLatLng());
+                                currentDestination = place.getLatLng();
+                                drawRoutePutMarker(origin, currentDestination);
 //                                Toast.makeText(getApplicationContext(), "Distance: "+distance/1000+" km", Toast.LENGTH_SHORT).show();
                             }
                             else {
@@ -248,7 +303,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                                 LatLng origin = new LatLng(location.getLatitude(), location.getLongitude());
 
                                 // Call a method to create a route
+                                currentDestination = point;
                                 drawRoutePutMarker(origin, point);
+                                (new FetchDistanceTask()).execute(origin, point);
 //                                Toast.makeText(getApplicationContext(), "Distance: "+distance/1000+" km", Toast.LENGTH_SHORT).show();
                             }
                             else {
@@ -295,9 +352,74 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     }
 
+    public class FetchDistanceTask extends AsyncTask<LatLng, Void, String> {
+
+        private static final String TAG = "FetchDistanceTask";
+
+        @Override
+        protected String doInBackground(LatLng... latLngs) {
+            String str_origin = "origins=" + latLngs[0].latitude + "," + latLngs[0].longitude;
+            String str_dest = "destinations=" + latLngs[1].latitude + "," + latLngs[1].longitude;
+            String sensor = "sensor=false";
+            String mode = "mode=walking";
+            String parameters = str_origin + "&" + str_dest + "&" + sensor + "&" + mode;
+            String output = "json";
+            String url = "https://maps.googleapis.com/maps/api/distancematrix/" + output + "?" + parameters + "&key=" + MAPS_API_KEY;
+
+            try {
+                URL urlObject = new URL(url);
+                HttpURLConnection conn = (HttpURLConnection) urlObject.openConnection();
+                conn.connect();
+
+                InputStream in = conn.getInputStream();
+                BufferedReader reader = new BufferedReader(new InputStreamReader(in));
+
+                StringBuilder result = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    result.append(line);
+                }
+
+                reader.close();
+
+                JSONObject jsonObject = new JSONObject(result.toString());
+                JSONArray array = jsonObject.getJSONArray("rows");
+                JSONObject routes = array.getJSONObject(0);
+                JSONArray legs = routes.getJSONArray("elements");
+                JSONObject steps = legs.getJSONObject(0);
+                JSONObject distance = steps.getJSONObject("distance");
+
+                return distance.getString("text");
+
+            } catch (Exception e) {
+                Log.e(TAG, "Error in fetching distance", e);
+            }
+
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(String result) {
+            super.onPostExecute(result);
+            if (result != null) {
+                Log.d(TAG, "Distance: " + result);  // This will be distance in km
+                dist2Dest = result;
+                TextView txtView = findViewById(R.id.simpleTextView);
+                txtView.setText("You have " + dist2Dest + " left");
+            } else {
+                Log.d(TAG, "Error in fetching distance");
+            }
+        }
+    }
+
+
 
 
     private void drawRoutePutMarker(LatLng origin, LatLng destination) {
+
+        this.currentDestination = destination;
+        // Start the initial runnable task by posting through the handler
+        handler.post(runnableCode);
 
         //delete previous routes:
         if (previousPolyline != null)
@@ -619,6 +741,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 }
                 return routes;
             }
+
             private double calculateDistance(LatLng startPoint, LatLng endPoint) {
                 Location location1 = new Location("locationA");
                 location1.setLatitude(startPoint.latitude);
@@ -721,7 +844,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
 
 
-        private class GeocodeAsyncTask extends AsyncTask<String, Void, List<Address>> {
+    private class GeocodeAsyncTask extends AsyncTask<String, Void, List<Address>> {
 
         private Geocoder geocoder;
 
