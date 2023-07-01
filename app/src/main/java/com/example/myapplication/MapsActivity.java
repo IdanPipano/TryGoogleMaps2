@@ -6,7 +6,6 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentActivity;
 
-import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.ComponentName;
@@ -18,6 +17,9 @@ import android.graphics.Color;
 import android.location.Address;
 import android.location.Geocoder;
 import android.location.Location;
+import android.location.LocationManager;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.os.AsyncTask;
 import android.os.Bundle;
 
@@ -48,11 +50,7 @@ import com.google.android.libraries.places.widget.listener.PlaceSelectionListene
 import android.Manifest;
 import android.os.Handler;
 import android.os.IBinder;
-import android.text.Spannable;
-import android.text.SpannableStringBuilder;
-import android.text.style.ForegroundColorSpan;
 import android.util.Log;
-import android.widget.SearchView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -75,7 +73,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     private GoogleMap mMap;
     private ActivityMapsBinding binding;
-    // hi zalle
+
     private static final int MY_LOCATION_REQUEST_CODE = 99;  // Unique request code
     String MAPS_API_KEY = "AIzaSyBfX2PxYcxF3B-i9PNUwR-ocrhDEdD0MnA";
     private Polyline previousPolyline;
@@ -92,7 +90,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private enum Connected { False, Pending, True }
     private Connected connected = Connected.False;
     private boolean initialStart = true;
-    private String dist2Dest;  // Distance in format "xxx km" or "xx m"
+    private double dist2Dest;  // Distance in format "xxx km" or "xx m"
 
 
     Handler handler = new Handler();
@@ -120,11 +118,17 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 });
             }
             // Repeat this runnable code block again every 2 seconds
-            handler.postDelayed(this, 2000);
+            handler.postDelayed(this, 5000);  //TODO: CHANGE THIS BACK TO 2000
         }
     };
 
 
+
+    @Override
+    public void onBackPressed(){
+        super.onBackPressed();
+        Toast.makeText(getApplicationContext(), "pressed back lol!", Toast.LENGTH_SHORT).show();
+    }
 
 
     @Override
@@ -204,27 +208,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             public void onPlaceSelected(@NonNull Place place) {
                 // TODO: Get info about the selected place.
                 Log.i("wtf", "Place: " + place.getName() + ", " + place.getLatLng() + ", Openning hours: " + place.getOpeningHours() + ", Phone: " + place.getPhoneNumber());
-
-                if (ContextCompat.checkSelfPermission(MapsActivity.this, Manifest.permission.ACCESS_FINE_LOCATION)
-                        == PackageManager.PERMISSION_GRANTED) {
-                    FusedLocationProviderClient fusedLocationClient = LocationServices.getFusedLocationProviderClient(MapsActivity.this);
-                    fusedLocationClient.getLastLocation().addOnSuccessListener(MapsActivity.this, new OnSuccessListener<Location>() {
-                        @Override
-                        public void onSuccess(Location location) {
-                            if (location != null) {
-                                LatLng origin = new LatLng(location.getLatitude(), location.getLongitude());
-
-                                // Call a method to create a route
-                                currentDestination = place.getLatLng();
-                                drawRoutePutMarker(origin, currentDestination);
-//                                Toast.makeText(getApplicationContext(), "Distance: "+distance/1000+" km", Toast.LENGTH_SHORT).show();
-                            }
-                            else {
-                                Log.d("wtf", "location null");
-                            }
-                        }
-                    });
-                }
+                onPlaceSelectedOrTouched(place.getLatLng());
             }
 
 
@@ -291,29 +275,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mMap.setOnMapClickListener(new GoogleMap.OnMapClickListener() {
             @Override
             public void onMapClick(LatLng point) {
-
-                // Get the current location and create a route
-                if (ContextCompat.checkSelfPermission(MapsActivity.this, Manifest.permission.ACCESS_FINE_LOCATION)
-                        == PackageManager.PERMISSION_GRANTED) {
-                    FusedLocationProviderClient fusedLocationClient = LocationServices.getFusedLocationProviderClient(MapsActivity.this);
-                    fusedLocationClient.getLastLocation().addOnSuccessListener(MapsActivity.this, new OnSuccessListener<Location>() {
-                        @Override
-                        public void onSuccess(Location location) {
-                            if (location != null) {
-                                LatLng origin = new LatLng(location.getLatitude(), location.getLongitude());
-
-                                // Call a method to create a route
-                                currentDestination = point;
-                                drawRoutePutMarker(origin, point);
-                                (new FetchDistanceTask()).execute(origin, point);
-//                                Toast.makeText(getApplicationContext(), "Distance: "+distance/1000+" km", Toast.LENGTH_SHORT).show();
-                            }
-                            else {
-                                Log.d("wtf", "location null");
-                            }
-                        }
-                    });
-                }
+                onPlaceSelectedOrTouched(point);
             }
         });
 
@@ -352,12 +314,53 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     }
 
-    public class FetchDistanceTask extends AsyncTask<LatLng, Void, String> {
+    private boolean isNetworkAvailable() {  //TODO: Might need modifications to run on Doron's phone
+        ConnectivityManager connectivityManager
+                = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        NetworkInfo activeNetworkInfo = connectivityManager.getActiveNetworkInfo();
+        return activeNetworkInfo != null && activeNetworkInfo.isConnected();
+    }
+
+    public void onPlaceSelectedOrTouched(LatLng point){
+        Log.d("wtf", "onPlaceSelectedOrTouched");
+         if (!isNetworkAvailable()) {
+             Toast.makeText(MapsActivity.this, "You don't have internet connection", Toast.LENGTH_SHORT).show();
+             return;
+         }
+        // Get the current location and create a route
+        if (ContextCompat.checkSelfPermission(MapsActivity.this, Manifest.permission.ACCESS_FINE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED) {
+            FusedLocationProviderClient fusedLocationClient = LocationServices.getFusedLocationProviderClient(MapsActivity.this);
+            fusedLocationClient.getLastLocation().addOnSuccessListener(MapsActivity.this, new OnSuccessListener<Location>() {
+                @Override
+                public void onSuccess(Location location) {
+                    if (location != null) {
+                        LatLng origin = new LatLng(location.getLatitude(), location.getLongitude());
+
+                        // Call a method to create a route
+                        currentDestination = point;
+                        drawRoutePutMarker(origin, point);
+                        //(new FetchDistanceTask()).execute(origin, point);
+//                                Toast.makeText(getApplicationContext(), "Distance: "+distance/1000+" km", Toast.LENGTH_SHORT).show();
+                    }
+                    else {
+                        Log.d("wtf", "location null");
+                        LocationManager locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+                        if (!locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+                            Toast.makeText(MapsActivity.this, "GPS is weak or disabled", Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    public class FetchDistanceTask extends AsyncTask<LatLng, Void, Double> {
 
         private static final String TAG = "FetchDistanceTask";
 
         @Override
-        protected String doInBackground(LatLng... latLngs) {
+        protected Double doInBackground(LatLng... latLngs) {
             String str_origin = "origins=" + latLngs[0].latitude + "," + latLngs[0].longitude;
             String str_dest = "destinations=" + latLngs[1].latitude + "," + latLngs[1].longitude;
             String sensor = "sensor=false";
@@ -365,6 +368,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             String parameters = str_origin + "&" + str_dest + "&" + sensor + "&" + mode;
             String output = "json";
             String url = "https://maps.googleapis.com/maps/api/distancematrix/" + output + "?" + parameters + "&key=" + MAPS_API_KEY;
+            Log.d("wtf", "distance matrix: " + url);
 
             try {
                 URL urlObject = new URL(url);
@@ -388,8 +392,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 JSONArray legs = routes.getJSONArray("elements");
                 JSONObject steps = legs.getJSONObject(0);
                 JSONObject distance = steps.getJSONObject("distance");
-
-                return distance.getString("text");
+                return distance.getDouble("value");  // in meters!!!
 
             } catch (Exception e) {
                 Log.e(TAG, "Error in fetching distance", e);
@@ -399,18 +402,34 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         }
 
         @Override
-        protected void onPostExecute(String result) {
+        protected void onPostExecute(Double result) {
             super.onPostExecute(result);
             if (result != null) {
                 Log.d(TAG, "Distance: " + result);  // This will be distance in km
                 dist2Dest = result;
                 TextView txtView = findViewById(R.id.simpleTextView);
-                txtView.setText("You have " + dist2Dest + " left");
+                txtView.setText("You have " + nicifyDistanceString(dist2Dest) + " left");
             } else {
                 Log.d(TAG, "Error in fetching distance");
             }
         }
     }
+
+    /*
+    Gets a Double that represents distance in meters and returns a nice string representation o it.
+    If the distance is more than 1000m, return in kms. Else, in meters.
+    If the distance in meters is not actually an integer - rounds it.
+     */
+    private String nicifyDistanceString(Double distInMeteres){
+        int distRounded = (int)(double)(distInMeteres);
+        if (distInMeteres < 1000) {
+            return distRounded + " m";
+        } else {
+            double distanceInKilometers = (distInMeteres / 1000.0);
+            return distanceInKilometers + " km";
+        }
+    }
+
 
 
 
@@ -677,7 +696,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 Toast.makeText(getApplicationContext(), "Distance: "+distance/1000+" km", Toast.LENGTH_SHORT).show();
                 //Display in TextView the distance:
                 TextView txtView = findViewById(R.id.simpleTextView);
-                txtView.setText("You have " + distance/1000 + " km left");
+                dist2Dest = distance;
+                txtView.setText("You have " + nicifyDistanceString(distance) + " left");
             }
         }
 

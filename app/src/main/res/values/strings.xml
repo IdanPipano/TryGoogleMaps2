@@ -1,4 +1,5 @@
 <resources>
-    <string name="app_name">My Application</string>
+    <string name="app_name">IMU4BetterU</string>
+    <string name="welcome_message">Welcome to IMU4BetterU!</string>
     <string name="title_activity_maps">MapsActivity</string>
 </resources>
