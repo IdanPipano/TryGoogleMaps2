@@ -14,10 +14,17 @@ public class HomePageActivity extends AppCompatActivity {
         setContentView(R.layout.activity_home_page);
 
         // #TODO: if user signed in then
+//        FragmentContainerView fragmentContainer = findViewById(R.id.loggedInFragmentContainerView);
+//        LoggedInFragment loggedInFragment = new LoggedInFragment();
+//        FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
+//        transaction.add(R.id.loggedInFragmentContainerView, loggedInFragment);
+//        transaction.commit();
+
+        // else:
         FragmentContainerView fragmentContainer = findViewById(R.id.loggedInFragmentContainerView);
-        LoggedInFragment loggedInFragment = new LoggedInFragment();
+        NotLoggedInFragment notLoggedInFragment = new NotLoggedInFragment();
         FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
-        transaction.add(R.id.loggedInFragmentContainerView, loggedInFragment);
+        transaction.replace(R.id.loggedInFragmentContainerView, notLoggedInFragment);
         transaction.commit();
 
 
