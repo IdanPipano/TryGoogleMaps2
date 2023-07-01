@@ -2,4 +2,8 @@
     <string name="app_name">IMU4BetterU</string>
     <string name="welcome_message">Welcome to IMU4BetterU!</string>
     <string name="title_activity_maps">MapsActivity</string>
+    <string name="app_description">Choose a destination in the map and we will tell you when you are expected to be there
+    if you continue walking in you current speed!</string>
+    <!-- TODO: Remove or change this placeholder text -->
+    <string name="hello_blank_fragment">Hello blank fragment</string>
 </resources>
