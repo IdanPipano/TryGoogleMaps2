@@ -27,6 +27,11 @@ public class HomePageActivity extends AppCompatActivity {
         transaction.replace(R.id.loggedInFragmentContainerView, notLoggedInFragment);
         transaction.commit();
 
+//        LoggedInFragment loggedInFragment = new LoggedInFragment();
+//        FragmentTransaction transaction2 = getSupportFragmentManager().beginTransaction();
+//        transaction2.replace(R.id.loggedInFragmentContainerView, loggedInFragment);
+//        transaction2.commit();
+
 
     }
 }
