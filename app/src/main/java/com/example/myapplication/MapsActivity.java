@@ -276,14 +276,15 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 if (!Python.isStarted()) {
                     Python.start(new AndroidPlatform(getApplicationContext()));
                 }
-                CyclicArray<String> c = new CyclicArray<>(10);
+                CyclicArray<String> c = new CyclicArray<>(2);
                 c.add("1,2,3,4");
                 c.add("5,6,7,8");
+                c.add("9,10,11,12");
 
                 Python py = Python.getInstance();
                 PyObject pyMatrix = py.getModule("numpy").callAttr("array", (Object) c.getArray());
-                PyObject pyMean = py.getModule("test").callAttr("str_matrix_sum", pyMatrix, 300);
-                Toast.makeText(getApplicationContext(), pyMean.toString(), Toast.LENGTH_SHORT).show();
+                PyObject pyMean = py.getModule("test").callAttr("parse_data", pyMatrix, c.getHead());
+                Toast.makeText(getApplicationContext(), pyMean.toString(), Toast.LENGTH_LONG).show();
 
             }
 
@@ -295,18 +296,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         });
 
         //Python things:
-        if (!Python.isStarted()) {
-            Python.start(new AndroidPlatform(this));
-        }
-
-
-
-        Python py = Python.getInstance();
-        PyObject pyObject = py.getModule("test");
-
-        PyObject pyObject1 = pyObject.callAttr("will_it_work");
-
-//        Toast.makeText(this, pyObject1.toString(), Toast.LENGTH_LONG).show();
 
 
         //Search location things:
