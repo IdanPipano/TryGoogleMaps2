@@ -107,9 +107,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     private LatLng lastLocation; // used for true-labels training the model
 
-    private ArrayDeque<String> accQueue = new ArrayDeque<>(100);
-    private int countSamples = 0; //TODO every time reaches 100, call train and assign to it 0
+    private int windowSize = 200;
+    private ArrayDeque<String> accQueue = new ArrayDeque<>(windowSize);
+    private int countSamples = 0; //TODO every time reaches windowSize, call train and assign to it 0
     private boolean firstHundred = true;
+    private double walkedInLastWindow = 0;
 
 
     Handler handler = new Handler();
@@ -577,7 +579,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         @Override
         protected void onPostExecute(Double result) {
             if (result != null) { // result is the distance in meters from the last location to the current location
-                Toast.makeText(getApplicationContext(),"You walked " + result + " meters", Toast.LENGTH_SHORT).show();
+                walkedInLastWindow = result;
+                Toast.makeText(getApplicationContext(),"You walked " + result + " meters (GoogleMaps)", Toast.LENGTH_SHORT).show();
             } else {
                 Log.d("wtf", "Error in fetching distance");
             }
@@ -744,7 +747,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 if (!firstHundred) {accQueue.remove();}
                 accQueue.add(dataString);
                 ++countSamples;
-                if (countSamples == 100) {
+                if (countSamples == windowSize) {
                     firstHundred = false;
                     final float[] distanceWalked = new float[1];
                     distanceWalked[0] = -1989;
@@ -758,8 +761,10 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                                 if (location != null) {
                                     LatLng currentLocation = new LatLng(location.getLatitude(), location.getLongitude());
                                     //Log.d("wtf", "" + origin.latitude + ", " + origin.longitude);
-                                    distanceWalked[0] = calculateAirDistance(currentLocation, lastLocation);
-                                    Toast.makeText(MapsActivity.this, "You walked in the last 10s " + String.valueOf(distanceWalked[0]) , Toast.LENGTH_SHORT).show();
+                                    (new FetchDistForTrainTask()).execute(lastLocation, currentLocation);
+
+//                                    distanceWalked[0] = calculateAirDistance(currentLocation, lastLocation);
+//                                    Toast.makeText(MapsActivity.this, "You walked in the last " + windowSize + " measurement: " + String.valueOf(distanceWalked[0]) + "m", Toast.LENGTH_SHORT).show();
                                     lastLocation = currentLocation;
                                 }
                                 else {
