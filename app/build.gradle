@@ -25,6 +25,7 @@ android {
             buildPython "C:/Users/pipan/AppData/Local/Programs/Python/Python38/python.exe"
             pip {
                 install "numpy"
+                install "scipy"
             }
         }
 

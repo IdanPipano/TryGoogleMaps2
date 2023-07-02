@@ -108,7 +108,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private LatLng lastLocation; // used for true-labels training the model
 
     private int windowSize = 200;
-    private ArrayDeque<String> accQueue = new ArrayDeque<>(windowSize);
+    private CyclicArray<String> accQueue = new CyclicArray<>(windowSize);
     private int countSamples = 0; //TODO every time reaches windowSize, call train and assign to it 0
     private boolean firstHundred = true;
     private double walkedInLastWindow = 0;
@@ -141,6 +141,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             handler.postDelayed(this, 5000);  //TODO: CHANGE THIS BACK TO 2000
         }
     };
+
+
 
 
 
@@ -255,18 +257,34 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     javaArray[i] = arrayRow;
                 }
 
-                Toast.makeText(getApplicationContext(), matrix.toString(), Toast.LENGTH_SHORT).show();
 
-                //Python things:
+
+//                Toast.makeText(getApplicationContext(), matrix.toString(), Toast.LENGTH_SHORT).show();
+//
+//                //Python things:
+//                if (!Python.isStarted()) {
+//                    Python.start(new AndroidPlatform(getApplicationContext()));
+//                }
+//
+//                Python py = Python.getInstance();
+//
+//                PyObject pyMatrix = py.getModule("numpy").callAttr("array", (Object) javaArray);
+//                PyObject pyMean = py.getModule("test").callAttr("matrix_mean", pyMatrix);
+//                Toast.makeText(getApplicationContext(), pyMean.toString(), Toast.LENGTH_SHORT).show();
+
+
                 if (!Python.isStarted()) {
                     Python.start(new AndroidPlatform(getApplicationContext()));
                 }
+                CyclicArray<String> c = new CyclicArray<>(10);
+                c.add("1,2,3,4");
+                c.add("5,6,7,8");
 
                 Python py = Python.getInstance();
-
-                PyObject pyMatrix = py.getModule("numpy").callAttr("array", (Object) javaArray);
-                PyObject pyMean = py.getModule("test").callAttr("matrix_mean", pyMatrix);
+                PyObject pyMatrix = py.getModule("numpy").callAttr("array", (Object) c.getArray());
+                PyObject pyMean = py.getModule("test").callAttr("str_matrix_sum", pyMatrix, 300);
                 Toast.makeText(getApplicationContext(), pyMean.toString(), Toast.LENGTH_SHORT).show();
+
             }
 
             @Override
@@ -280,6 +298,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         if (!Python.isStarted()) {
             Python.start(new AndroidPlatform(this));
         }
+
+
 
         Python py = Python.getInstance();
         PyObject pyObject = py.getModule("test");
@@ -744,7 +764,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 //Log.d("wtf", acc[i] + "");
             }
             if (stringAcc.length == 4) {
-                if (!firstHundred) {accQueue.remove();}
                 accQueue.add(dataString);
                 ++countSamples;
                 if (countSamples == windowSize) {
@@ -775,7 +794,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     }
                     //TODO: train
                     countSamples = 0;
-                    Log.d("wtf", accQueue.size()+"");
                 }
                 Log.d("BT", dataString);
             }
