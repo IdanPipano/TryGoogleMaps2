@@ -6,11 +6,10 @@ import java.util.List;
 import java.util.Locale;
 
 public class User {
-    String stupidString, email, password, userName;
+    String email, password, userName;
     List<List<Double>> matrix = new ArrayList<>();
 
     public User(String email, String password, String userName) {
-        this.stupidString = email.toUpperCase(Locale.ROOT);
         this.email = email;
         this.password = password;
         this.userName = userName;
@@ -19,13 +18,11 @@ public class User {
         matrix.add(row1);
         matrix.add(row2);
     }
+    
     public User() {
 
     }
 
-    public void setStupidString(String stupidString) {
-        this.stupidString = stupidString;
-    }
 
     public void setEmail(String email) {
         this.email = email;
@@ -37,10 +34,6 @@ public class User {
 
     public void setUserName(String userName) {
         this.userName = userName;
-    }
-
-    public String getStupidString() {
-        return stupidString;
     }
 
     public String getEmail() {

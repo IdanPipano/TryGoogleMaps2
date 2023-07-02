@@ -116,21 +116,23 @@ public class RegisterActivity extends AppCompatActivity {
                             public void onComplete(@NonNull Task<AuthResult> task) {
                                 progressBar.setVisibility(View.GONE);
                                 if (task.isSuccessful()) {
-                                    Toast.makeText(RegisterActivity.this, "Account Created.",
-                                            Toast.LENGTH_SHORT).show();
-
-
+                                    FirebaseUser firebaseUser = mAuth.getCurrentUser();
+                                    String uid = firebaseUser.getUid();
                                     db = FirebaseDatabase.getInstance("https://idantriesfirebase-default-rtdb.firebaseio.com/");
                                     reference = db.getReference("Users");
                                     User user = new User(email, password, userName);
 
-                                    reference.child(userName).setValue(user).addOnCompleteListener(new OnCompleteListener<Void>() {
+                                    reference.child(uid).setValue(user).addOnCompleteListener(new OnCompleteListener<Void>() {
                                         @Override
                                         public void onComplete(Task<Void> task) {
                                             Toast.makeText(getApplicationContext(), "successfully updated db", Toast.LENGTH_SHORT).show();
                                         }
 
+
                                     });
+
+                                    Toast.makeText(RegisterActivity.this, "Account Created.",
+                                            Toast.LENGTH_SHORT).show();
 
 
 
