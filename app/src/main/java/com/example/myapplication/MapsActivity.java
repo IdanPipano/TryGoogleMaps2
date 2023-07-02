@@ -17,6 +17,7 @@ import android.graphics.Color;
 import android.location.Address;
 import android.location.Geocoder;
 import android.location.Location;
+import android.location.LocationListener;
 import android.location.LocationManager;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
@@ -46,6 +47,13 @@ import com.google.android.libraries.places.api.Places;
 import com.google.android.libraries.places.api.model.Place;
 import com.google.android.libraries.places.widget.AutocompleteSupportFragment;
 import com.google.android.libraries.places.widget.listener.PlaceSelectionListener;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
 
 import android.Manifest;
 import android.os.Handler;
@@ -64,6 +72,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -90,12 +99,22 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private enum Connected { False, Pending, True }
     private Connected connected = Connected.False;
     private boolean initialStart = true;
-    private double dist2Dest;  // Distance in format "xxx km" or "xx m"
+    private double dist2Dest;  // Distance in meters
+
+    private FirebaseAuth mAuth;
+    private FirebaseUser currentUser;
+    private String userName;
+
+    private LatLng lastLocation; // used for true-labels training the model
+
+    private ArrayDeque<String> accQueue = new ArrayDeque<>(100);
+    private int countSamples = 0; //TODO every time reaches 100, call train and assign to it 0
+    private boolean firstHundred = true;
 
 
     Handler handler = new Handler();
     //a runnable that once activated measures distance to destination every 2 seconds
-    Runnable runnableCode = new Runnable() {
+    Runnable runnableDist4Dest = new Runnable() {
         @Override
         public void run() {
             // Do something here on the main thread
@@ -112,16 +131,43 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                             (new FetchDistanceTask()).execute(origin, currentDestination);
                         }
                         else {
-                            Log.d("wtf", "location null");
+                            Log.d("wtf", "location null in runnableDist4Dest run()");
                         }
                     }
                 });
             }
-            // Repeat this runnable code block again every 2 seconds
             handler.postDelayed(this, 5000);  //TODO: CHANGE THIS BACK TO 2000
         }
     };
 
+
+
+    Runnable runnableDist4Train = new Runnable() {
+        @Override
+        public void run() {
+            // TODO: Implement your task logic here
+            if (ContextCompat.checkSelfPermission(MapsActivity.this, Manifest.permission.ACCESS_FINE_LOCATION)
+                    == PackageManager.PERMISSION_GRANTED) {
+                FusedLocationProviderClient fusedLocationClient = LocationServices.getFusedLocationProviderClient(MapsActivity.this);
+                fusedLocationClient.getLastLocation().addOnSuccessListener(MapsActivity.this, new OnSuccessListener<Location>() {
+                    @Override
+                    public void onSuccess(Location location) {
+                        if (location != null) {
+                            LatLng currentLocation = new LatLng(location.getLatitude(), location.getLongitude());
+                            //Log.d("wtf", "" + origin.latitude + ", " + origin.longitude);
+                            (new FetchDistForTrainTask()).execute(lastLocation, currentLocation);
+                            lastLocation = currentLocation;
+                        }
+                        else {
+                            Log.d("wtf", "location null in runnableDist4Dest run()");
+                        }
+                    }
+                });
+            // Call the postDelayed() method again to schedule the task after 10 seconds
+            handler.postDelayed(this, 10000);
+            }
+        }
+    };
 
 
     @Override
@@ -142,10 +188,13 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         }
 
 
+        initLastLocation();
+        //handler.post(runnableDist4Train);
+
+
     }
 
-    private LatLng getCurrentLocation(){
-        final LatLng[] currentLocation = new LatLng[1];
+    private void initLastLocation() {
         if (ContextCompat.checkSelfPermission(MapsActivity.this, Manifest.permission.ACCESS_FINE_LOCATION)
                 == PackageManager.PERMISSION_GRANTED) {
             FusedLocationProviderClient fusedLocationClient = LocationServices.getFusedLocationProviderClient(MapsActivity.this);
@@ -153,20 +202,25 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 @Override
                 public void onSuccess(Location location) {
                     if (location != null) {
-                        currentLocation[0] = new LatLng(location.getLatitude(), location.getLongitude());
-                    }
-                    else {
-                        Log.d("wtf", "location null");
+                        LatLng currentLocation = new LatLng(location.getLatitude(), location.getLongitude());
+                        lastLocation = currentLocation;
+                    } else {
+                        Log.d("wtf", "location null in initLastLocation");
                     }
                 }
             });
         }
-        return currentLocation[0];
     }
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+
+        mAuth = FirebaseAuth.getInstance();
+        this.currentUser = mAuth.getCurrentUser();
+        this.userName = getIntent().getStringExtra("userName");
 
         if(this.getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH)){
             bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
@@ -175,6 +229,50 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         binding = ActivityMapsBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
+
+
+
+        //Idan trying querying matrix from firbase:
+        FirebaseDatabase database = FirebaseDatabase.getInstance();
+        DatabaseReference myRef = database.getReference("Users").child(currentUser.getUid()); // replace "uid" with the user's unique ID
+
+        myRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                User user = dataSnapshot.getValue(User.class);
+                List<List<Double>> matrix = user.getMatrix();
+
+                //Convert the matrix to a nested Java array
+                double[][] javaArray = new double[matrix.size()][];
+                for (int i = 0; i < matrix.size(); i++) {
+                    List<Double> row = matrix.get(i);
+                    double[] arrayRow = new double[row.size()];
+                    for (int j = 0; j < row.size(); j++) {
+                        arrayRow[j] = row.get(j);
+                    }
+                    javaArray[i] = arrayRow;
+                }
+
+                Toast.makeText(getApplicationContext(), matrix.toString(), Toast.LENGTH_SHORT).show();
+
+                //Python things:
+                if (!Python.isStarted()) {
+                    Python.start(new AndroidPlatform(getApplicationContext()));
+                }
+
+                Python py = Python.getInstance();
+
+                PyObject pyMatrix = py.getModule("numpy").callAttr("array", (Object) javaArray);
+                PyObject pyMean = py.getModule("test").callAttr("matrix_mean", pyMatrix);
+                Toast.makeText(getApplicationContext(), pyMean.toString(), Toast.LENGTH_SHORT).show();
+            }
+
+            @Override
+            public void onCancelled(DatabaseError error) {
+                // Failed to read value, handle the error here
+                Log.w("wtf", "Failed to read value.", error.toException());
+            }
+        });
 
         //Python things:
         if (!Python.isStarted()) {
@@ -186,7 +284,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         PyObject pyObject1 = pyObject.callAttr("will_it_work");
 
-        Toast.makeText(this, pyObject1.toString(), Toast.LENGTH_LONG).show();
+//        Toast.makeText(this, pyObject1.toString(), Toast.LENGTH_LONG).show();
 
 
         //Search location things:
@@ -405,7 +503,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         protected void onPostExecute(Double result) {
             super.onPostExecute(result);
             if (result != null) {
-                Log.d(TAG, "Distance: " + result);  // This will be distance in km
+                Log.d(TAG, "Distance: " + result);  // This will be distance in meters
                 dist2Dest = result;
                 TextView txtView = findViewById(R.id.simpleTextView);
                 txtView.setText("You have " + nicifyDistanceString(dist2Dest) + " left");
@@ -430,6 +528,63 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         }
     }
 
+    public class FetchDistForTrainTask extends AsyncTask<LatLng, Void, Double> {
+
+        private static final String TAG = "FetchDistanceTask";
+
+        @Override
+        protected Double doInBackground(LatLng... latLngs) {
+            String str_origin = "origins=" + latLngs[0].latitude + "," + latLngs[0].longitude;
+            String str_dest = "destinations=" + latLngs[1].latitude + "," + latLngs[1].longitude;
+            String sensor = "sensor=false";
+            String mode = "mode=walking";
+            String parameters = str_origin + "&" + str_dest + "&" + sensor + "&" + mode;
+            String output = "json";
+            String url = "https://maps.googleapis.com/maps/api/distancematrix/" + output + "?" + parameters + "&key=" + MAPS_API_KEY;
+            Log.d("wtf", "distance matrix: " + url);
+
+            try {
+                URL urlObject = new URL(url);
+                HttpURLConnection conn = (HttpURLConnection) urlObject.openConnection();
+                conn.connect();
+
+                InputStream in = conn.getInputStream();
+                BufferedReader reader = new BufferedReader(new InputStreamReader(in));
+
+                StringBuilder result = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    result.append(line);
+                }
+
+                reader.close();
+
+                JSONObject jsonObject = new JSONObject(result.toString());
+                JSONArray array = jsonObject.getJSONArray("rows");
+                JSONObject routes = array.getJSONObject(0);
+                JSONArray legs = routes.getJSONArray("elements");
+                JSONObject steps = legs.getJSONObject(0);
+                JSONObject distance = steps.getJSONObject("distance");
+                return distance.getDouble("value");  // in meters!!!
+
+            } catch (Exception e) {
+                Log.e(TAG, "Error in fetching distance", e);
+            }
+
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(Double result) {
+            if (result != null) { // result is the distance in meters from the last location to the current location
+                Toast.makeText(getApplicationContext(),"You walked " + result + " meters", Toast.LENGTH_SHORT).show();
+            } else {
+                Log.d("wtf", "Error in fetching distance");
+            }
+        }
+    }
+
+
 
 
 
@@ -438,7 +593,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         this.currentDestination = destination;
         // Start the initial runnable task by posting through the handler
-        handler.post(runnableCode);
+        handler.post(runnableDist4Dest);
 
         //delete previous routes:
         if (previousPolyline != null)
@@ -573,25 +728,98 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     @Override
     public void onSerialRead(byte[] data) {
-        String dataString;
-        Log.d("wtf", "in onSerialRead " + (dataString = new String(data)));
+        String dataString = new String(data);
         if (0 == dataString.length()){
             Log.d("wtf", "in SerialService onSerialRead(), 0 == dataString.length()");
             return;
         }
-        String[] stringAcc = (new String(data)).split(",");
         try {
+            String[] stringAcc = dataString.split(",");
             float[] acc = new float[stringAcc.length];  // x, y, z, t
             for (int i = 0; i < stringAcc.length; i++) {
                 acc[i] = Float.parseFloat(stringAcc[i]);
-                Log.d("wtf", acc[i] + "");
+                //Log.d("wtf", acc[i] + "");
             }
+            if (stringAcc.length == 4) {
+                if (!firstHundred) {accQueue.remove();}
+                accQueue.add(dataString);
+                ++countSamples;
+                if (countSamples == 100) {
+                    firstHundred = false;
+                    final float[] distanceWalked = new float[1];
+                    distanceWalked[0] = -1989;
+                    if (ContextCompat.checkSelfPermission(MapsActivity.this, Manifest.permission.ACCESS_FINE_LOCATION)
+                            == PackageManager.PERMISSION_GRANTED) {
+                        FusedLocationProviderClient fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
+
+                        fusedLocationClient.getLastLocation().addOnSuccessListener(MapsActivity.this, new OnSuccessListener<Location>() {
+                            @Override
+                            public void onSuccess(Location location) {
+                                if (location != null) {
+                                    LatLng currentLocation = new LatLng(location.getLatitude(), location.getLongitude());
+                                    //Log.d("wtf", "" + origin.latitude + ", " + origin.longitude);
+                                    distanceWalked[0] = calculateAirDistance(currentLocation, lastLocation);
+                                    Toast.makeText(MapsActivity.this, "You walked in the last 10s " + String.valueOf(distanceWalked[0]) , Toast.LENGTH_SHORT).show();
+                                    lastLocation = currentLocation;
+                                }
+                                else {
+                                    Log.d("wtf", "location null in runnableDist4Dest run()");
+                                }
+                            }
+                        });
+                    }
+                    //TODO: train
+                    countSamples = 0;
+                    Log.d("wtf", accQueue.size()+"");
+                }
+                Log.d("BT", dataString);
+            }
+
         }
        catch (Exception e){
             Log.d("wtf", "onSerialRead Exception occurred!");
         }
 
     }
+
+    public float calculateAirDistanceWalked(){
+        final float[] airDist = new float[1];
+        airDist[0] = -3;
+        if (ContextCompat.checkSelfPermission(MapsActivity.this, Manifest.permission.ACCESS_FINE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED) {
+            FusedLocationProviderClient fusedLocationClient = LocationServices.getFusedLocationProviderClient(MapsActivity.this);
+            fusedLocationClient.getLastLocation().addOnSuccessListener(MapsActivity.this, new OnSuccessListener<Location>() {
+                @Override
+                public void onSuccess(Location location) {
+                    if (location != null) {
+                        LatLng currentLocation = new LatLng(location.getLatitude(), location.getLongitude());
+                        //Log.d("wtf", "" + origin.latitude + ", " + origin.longitude);
+                        airDist[0] = calculateAirDistance(currentLocation, lastLocation);
+                        lastLocation = currentLocation;
+                    }
+                    else {
+                        Log.d("wtf", "location null in runnableDist4Dest run()");
+                    }
+                }
+            });
+        }
+        return airDist[0];
+    }
+
+    public float calculateAirDistance(LatLng point1, LatLng point2) {
+        // Create Location objects from LatLng points
+        Location location1 = new Location("");
+        location1.setLatitude(point1.latitude);
+        location1.setLongitude(point1.longitude);
+
+        Location location2 = new Location("");
+        location2.setLatitude(point2.latitude);
+        location2.setLongitude(point2.longitude);
+
+        // Calculate the distance between the two locations
+        return location1.distanceTo(location2);
+    }
+
 
     @Override
     public void onSerialIoError(Exception e) {

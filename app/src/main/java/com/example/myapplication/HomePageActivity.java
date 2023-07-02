@@ -44,12 +44,14 @@ public class HomePageActivity extends AppCompatActivity {
                         Log.d("wtf", "userName= " + userName);
                         // Now you have the username, do whatever you want with it
                         FragmentContainerView fragmentContainer = findViewById(R.id.loggedInFragmentContainerView);
-                        LoggedInFragment loggedInFragment = new LoggedInFragment(userName);
+                        //LoggedInFragment loggedInFragment = ;
                         FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
-                        transaction.replace(R.id.loggedInFragmentContainerView, loggedInFragment);
+                        transaction.replace(R.id.loggedInFragmentContainerView, LoggedInFragment.newInstance(userName));
                         transaction.commit();
                     }
                 }
+
+
 
 
 
@@ -60,34 +62,6 @@ public class HomePageActivity extends AppCompatActivity {
                 }
             });
 
-
-//            String uid = currentUser.getUid();
-//            DatabaseReference dbRef = FirebaseDatabase.getInstance().getReference();
-//            DatabaseReference userRef = dbRef.child("Users").child(uid);
-//
-//            userRef.addListenerForSingleValueEvent(new ValueEventListener() {
-//                @Override
-//                public void onDataChange(DataSnapshot dataSnapshot) {
-//                    User user = dataSnapshot.getValue(User.class);
-//                    if (user != null) {
-//                        String userName = currentUser.getDisplayName();
-//                        // Now you have the username, do whatever you want with it
-//                        Log.d("wtf", "currentUser is not null in onStart of RegisterActivity! His username: " + userName);
-//                        FragmentContainerView fragmentContainer = findViewById(R.id.loggedInFragmentContainerView);
-//                        LoggedInFragment loggedInFragment = new LoggedInFragment(userName);
-//                        FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
-//                        transaction.replace(R.id.loggedInFragmentContainerView, loggedInFragment);
-//                        transaction.commit();
-//                    }
-//                }
-//
-//                @Override
-//                public void onCancelled(DatabaseError databaseError) {
-//                    // Handle possible errors.
-//                    Log.d("wrf", "loadUser:onCancelled", databaseError.toException());
-//                }
-//
-//            });
         }
         else {  //No user is currentlylogged in:
             NotLoggedInFragment notLoggedInFragment = new NotLoggedInFragment();
