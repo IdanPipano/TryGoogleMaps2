@@ -10,6 +10,9 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.TextView;
+
+import com.google.firebase.auth.FirebaseAuth;
 
 /**
  * A simple {@link Fragment} subclass.
@@ -23,14 +26,22 @@ public class LoggedInFragment extends Fragment {
     private static final String ARG_PARAM1 = "param1";
     private static final String ARG_PARAM2 = "param2";
 
+    String userMail;  // the email of the logged in user
+
     // TODO: Rename and change types of parameters
     private String mParam1;
     private String mParam2;
 
     private Button btnToMap;
+    private Button btnLogout;
+    private TextView txtView;
 
     public LoggedInFragment() {
         // Required empty public constructor
+    }
+
+    public LoggedInFragment(String userMail) {
+        this.userMail = userMail;
     }
 
     /**
@@ -80,6 +91,20 @@ public class LoggedInFragment extends Fragment {
                 }
             });
         }
+
+        txtView = view.findViewById(R.id.youAreLoggedInTxtView);
+        txtView.setText("You are logged in as " + this.userMail);
+
+        btnLogout = view.findViewById(R.id.btnLogout);
+        btnLogout.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                FirebaseAuth.getInstance().signOut();  //will sign out the user from firebase
+                Intent intent = new Intent(getContext(), HomePageActivity.class);
+                startActivity(intent);
+            }
+        });
+
 
         // Inflate the layout for this fragment
         return view;
