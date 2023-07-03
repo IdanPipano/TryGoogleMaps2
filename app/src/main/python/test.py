@@ -119,7 +119,13 @@ def train(observation: np.ndarray, label: float, head=0, debug=False):
     quad = transformed_observation.T @ ata_inverse_file @ transformed_observation
     ATA_inverse_new = ata_inverse_file - np.outer(ATA_v, ATA_v) / quad
     # Also calculate the value of the new ATb
-    ATb_new = atb_file + label * transformed_observation
+    print(f'{type(atb_file)=}')
+    print(f'{type(transformed_observation)=}')
+    machpela = label * transformed_observation
+    print(f"{type(machpela[0])=}")
+    print(f'{type(atb_file[0])=}')
+    ATb_new = atb_file + machpela
+    print('hi')
     return ATA_inverse_new, ATb_new, ATA_inverse_new @ ATb_new
 
 def big_matrix():
@@ -131,9 +137,6 @@ def randomMatVec(num_features):
     return np.random.rand(num_features, num_features), np.random.rand(num_features)
 
 def get_matrix(vec, i):
-    print(f'{type(vec)=}')
-    print(f'{type(i)=}')
-    print(f'{vec=}')
     global ata_inverse_file
     x = np.array(vec)
     ata_inverse_file[int(i)] = x

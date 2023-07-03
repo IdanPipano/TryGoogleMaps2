@@ -299,8 +299,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 for(int i = 0; i < ata_inverse.size(); i++){
                     py.getModule("test").callAttr("get_matrix", ata_inverse.get(i).toArray(), i);
                 }
-                py.getModule("test").callAttr("get_atb", atb);
+                py.getModule("test").callAttr("get_atb", (Object)atb.toArray());
 
+                CyclicArray<String> sample = new CyclicArray<>(200);
+                for (int i = 0; i < 200; i++){
+                    sample.add(i+","+(i+1)+","+(i+2)+","+(i+3));
+                }
             }
 
             @Override
@@ -316,42 +320,42 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             Python.start(new AndroidPlatform(getApplicationContext()));
         }
         Python py = Python.getInstance();
-        List<PyObject> pyMatVecVec = py.getModule("test").callAttr("big_matrix").asList();
-        PyObject pyMat = pyMatVecVec.get(0);
-        PyObject pyVector = pyMatVecVec.get(1);
-        PyObject pyVecProduct = pyMatVecVec.get(2);
+//        List<PyObject> pyMatVecVec = py.getModule("test").callAttr("big_matrix").asList();
+//        PyObject pyMat = pyMatVecVec.get(0);
+//        PyObject pyVector = pyMatVecVec.get(1);
+//        PyObject pyVecProduct = pyMatVecVec.get(2);
+//
+//        CyclicArray<String> c = new CyclicArray<>(2);
+//        c.add("1,2,3,4");
+//        c.add("5,6,7,8");
+//        c.add("9,10,11,12");
+//        //use pyMat, pyVec to check Doron's train: (first generate observation)
+//        PyObject trainResult = py.getModule("test").callAttr("train", pyMat, pyVector, (Object) c.getArray(), c.getHead(), 15);
+//        PyObject resultMat = pyMatVecVec.get(0);
+//        PyObject resultVector = pyMatVecVec.get(1);
+//        PyObject resultVecProduct = pyMatVecVec.get(2);
 
-        CyclicArray<String> c = new CyclicArray<>(2);
-        c.add("1,2,3,4");
-        c.add("5,6,7,8");
-        c.add("9,10,11,12");
-        //use pyMat, pyVec to check Doron's train: (first generate observation)
-        PyObject trainResult = py.getModule("test").callAttr("train", pyMat, pyVector, (Object) c.getArray(), c.getHead(), 15);
-        PyObject resultMat = pyMatVecVec.get(0);
-        PyObject resultVector = pyMatVecVec.get(1);
-        PyObject resultVecProduct = pyMatVecVec.get(2);
-
-        List<List<Double>> javaList = numpyMatrixToJavaListList(pyMat);
-
-        Log.d("wtf", javaList.toString());
-
-        matrixRef.child("mat rand").setValue(javaList);
-        List<Double> javaVector = numpyVectorToJavaList(pyVector);
-        matrixRef.child("vector rand").setValue(javaVector);
-        List<Double> javaVectorProduct = numpyVectorToJavaList(pyVecProduct);
-        matrixRef.child("product rand").setValue(javaVectorProduct);
-
-
-        matrixRef.child("mat result").setValue(numpyMatrixToJavaListList(resultMat));
-        matrixRef.child("vector result").setValue(numpyVectorToJavaList(resultVector));
-        matrixRef.child("product result").setValue(numpyVectorToJavaList(resultVecProduct));
+//        List<List<Double>> javaList = numpyMatrixToJavaListList(pyMat);
+//
+//        Log.d("wtf", javaList.toString());
+//
+//        matrixRef.child("mat rand").setValue(javaList);
+//        List<Double> javaVector = numpyVectorToJavaList(pyVector);
+//        matrixRef.child("vector rand").setValue(javaVector);
+//        List<Double> javaVectorProduct = numpyVectorToJavaList(pyVecProduct);
+//        matrixRef.child("product rand").setValue(javaVectorProduct);
+//
+//
+//        matrixRef.child("mat result").setValue(numpyMatrixToJavaListList(resultMat));
+//        matrixRef.child("vector result").setValue(numpyVectorToJavaList(resultVector));
+//        matrixRef.child("product result").setValue(numpyVectorToJavaList(resultVecProduct));
 
 
         //check predict:
 
-        PyObject predictResult = py.getModule("test").callAttr("predict",resultVecProduct, c.getArray(), 2, c.getHead());
-        Log.d("wtf", "predicted " + predictResult.toString());
-        matrixRef.child("predictResult").setValue(predictResult.toDouble());
+//        PyObject predictResult = py.getModule("test").callAttr("predict",resultVecProduct, c.getArray(), 2, c.getHead());
+//        Log.d("wtf", "predicted " + predictResult.toString());
+//        matrixRef.child("predictResult").setValue(predictResult.toDouble());
 
         //Python things:
 
@@ -670,8 +674,15 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             } catch (Exception e) { Log.e(TAG, "Error in fetching distance", e); }
 
 
+            if (!Python.isStarted()) {
+                Python.start(new AndroidPlatform(getApplicationContext()));
+            }
 
+            Python py = Python.getInstance();
 
+            CyclicArray<String> sample = accQueue;
+            PyObject trainResult = py.getModule("test").callAttr("train", (Object)sample.getArray(), dist, sample.getHead());
+            Log.d("wtf", "after trainnnnn " + trainResult.toString());
 
 
 
@@ -883,7 +894,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         }
        catch (Exception e){
-            Log.d("wtf", "onSerialRead Exception occurred!");
         }
 
     }
