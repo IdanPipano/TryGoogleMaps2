@@ -2,6 +2,29 @@ import numpy as np
 from scipy import interpolate
 from scipy import signal
 
+# class myModel:
+#     self.x = 0
+#
+#     def __init__(self):
+#         self.x=0
+#
+#     def update_x(self):
+#         self.x = self.x + 1
+#
+#     def get_x(self):
+#         return self.x
+
+x = 0
+
+def x_plus_1():
+    global x
+    x = x + 1
+
+def get_x():
+    global x
+    return x
+
+
 def parse_data(data_array, start=0):
     """
     The data array is a cyclic array: it has all the data in a cycle and an index
@@ -118,3 +141,6 @@ def big_matrix():
     # print(scipy.__version__)
     A, x = np.random.rand(5, 5), np.random.rand(5)
     return A, x, A @ x
+
+def randomMatVec(num_features):
+    return np.random.rand(num_features, num_features), np.random.rand(num_features)

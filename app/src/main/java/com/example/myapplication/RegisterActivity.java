@@ -120,7 +120,7 @@ public class RegisterActivity extends AppCompatActivity {
                                     String uid = firebaseUser.getUid();
                                     db = FirebaseDatabase.getInstance("https://idantriesfirebase-default-rtdb.firebaseio.com/");
                                     reference = db.getReference("Users");
-                                    User user = new User(email, password, userName);
+                                    User user = new User(email, password, userName, getApplicationContext());
 
                                     reference.child(uid).setValue(user).addOnCompleteListener(new OnCompleteListener<Void>() {
                                         @Override

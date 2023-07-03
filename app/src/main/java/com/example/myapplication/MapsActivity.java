@@ -53,6 +53,7 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
+import com.jakewharton.threetenabp.AndroidThreeTen;
 
 import android.Manifest;
 import android.os.Handler;
@@ -65,6 +66,8 @@ import android.widget.Toast;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.threeten.bp.LocalDateTime;
+import org.threeten.bp.format.DateTimeFormatter;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -109,12 +112,16 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     private LatLng lastLocation; // used for true-labels training the model
 
-    private int windowSize = 200;
+    static private int windowSize = 200;
+    static public int num_features = windowSize + 3;
     private CyclicArray<String> accQueue = new CyclicArray<>(windowSize);
     private int countSamples = 0; //TODO every time reaches windowSize, call train and assign to it 0
     private boolean firstHundred = true;
     private double walkedInLastWindow = 0;
     private int countTrain=0; // number of times we trained the model  //TODO: ++ every time we train
+
+
+    List<List<Double>> ata_inverse;
 
 
     Handler handler = new Handler();
@@ -144,6 +151,25 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             handler.postDelayed(this, 5000);  //TODO: CHANGE THIS BACK TO 2000
         }
     };
+
+    public void updateTexts(double speed){
+        //gets speed in km/h
+        txtViewSpeedKmh = findViewById(R.id.txtViewSpeedKmh);
+        txtViewSpeedKmh.setText(String.valueOf(speed) + "\nkm/h");
+
+        double hoursLeft = (dist2Dest / 1000) / speed;
+        Log.d("displayTime", "minutesLeft = " + hoursLeft*60 + " dist2Dest = " + dist2Dest);
+        txtViewTimeLeft = findViewById(R.id.txtViewTimeLeft);
+        txtViewTimeLeft.setText(getTimeAfterHours(hoursLeft)+"\narrival time");
+    }
+
+    public static String getTimeAfterHours(double hoursLeft) {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime future = now.plusMinutes((long) (hoursLeft * 60));
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm");
+
+        return future.format(formatter);
+    }
 
 
 
@@ -185,10 +211,23 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             this.startService(new Intent(this, SerialService.class)); // prevents service destroy on unbind from recreated activity caused by orientation change
             this.bindService(new Intent(this, SerialService.class), this, Context.BIND_AUTO_CREATE);
         }
+        AndroidThreeTen.init(this);
 
+        updateTexts(4.8);
 
         // initLastLocation();
         //handler.post(runnableDist4Train);
+
+        if (!Python.isStarted()) {
+            Python.start(new AndroidPlatform(getApplicationContext()));
+        }
+        Python py = Python.getInstance();
+        py.getModule("test").callAttr("x_plus_1");
+        py.getModule("test").callAttr("x_plus_1");
+        py.getModule("test").callAttr("x_plus_1");
+        PyObject pyObject = py.getModule("test").callAttr("get_x");
+        Log.d("checkX", pyObject.toDouble()+"");
+
 
     }
 
@@ -238,6 +277,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             public void onDataChange(DataSnapshot dataSnapshot) {
                 User user = dataSnapshot.getValue(User.class);
                 List<List<Double>> matrix = user.getMatrix();
+                ata_inverse = user.getAta_inverse();
+                Log.d("matrix", ata_inverse.toString());
+                //List<Double> atb = user.getAtb();
 
                 //Convert the matrix to a nested Java array
                 double[][] javaArray = new double[matrix.size()][];
@@ -564,6 +606,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             if (result != null) {
                 Log.d(TAG, "Distance: " + result);  // This will be distance in meters
                 dist2Dest = result;
+                updateTexts(4.8);
                 TextView txtView = findViewById(R.id.simpleTextView);
                 txtView.setText(nicifyDistanceString(dist2Dest) + "\nleft");
             } else {
@@ -593,6 +636,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         @Override
         protected Double doInBackground(LatLng... latLngs) {
+            Double dist = null;
             String str_origin = "origins=" + latLngs[0].latitude + "," + latLngs[0].longitude;
             String str_dest = "destinations=" + latLngs[1].latitude + "," + latLngs[1].longitude;
             String sensor = "sensor=false";
@@ -624,18 +668,18 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 JSONArray legs = routes.getJSONArray("elements");
                 JSONObject steps = legs.getJSONObject(0);
                 JSONObject distance = steps.getJSONObject("distance");
-                double dist = distance.getDouble("value")
-                return dist;  // in meters!!!
+                dist = distance.getDouble("value");
+                  // in meters!!!
 
-            } catch (Exception e) {
-                Log.e(TAG, "Error in fetching distance", e);
-            }
+            } catch (Exception e) { Log.e(TAG, "Error in fetching distance", e); }
 
 
 
 
 
-            return null;
+
+
+            return dist;
         }
 
         @Override
@@ -647,6 +691,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 Log.d("wtf", "Error in fetching distance");
             }
         }
+
     }
 
 
