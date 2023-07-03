@@ -38,13 +38,16 @@ def parse_data(data_array, start=0):
         Z[i] = float(values[2])
     return T, X, Y, Z
 
-def predict(full_vector_prediction, observation, num_samples, head=0, debug=False):
+def predict(observation, num_samples, head=0, debug=False):
     # Transform the raw data to a feature vector
     if debug:
         transformed_observation = add_features_to_data(observation)
     else:
         transformed_observation = add_features_to_data(parse_data(observation, start=head))
     # Here are some constants
+    global ata_inverse_file
+    global atb_file
+    full_vector_prediction = ata_inverse_file @ atb_file
     average_speed = 4.82803
     unit_change = 3.6
     # Choose dominance of the average speed, now is 0.2

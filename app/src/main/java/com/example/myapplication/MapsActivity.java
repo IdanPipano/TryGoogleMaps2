@@ -606,7 +606,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             if (result != null) {
                 Log.d(TAG, "Distance: " + result);  // This will be distance in meters
                 dist2Dest = result;
-                updateTexts(4.8);
+//                updateTexts(4.8);
                 TextView txtView = findViewById(R.id.simpleTextView);
                 txtView.setText(nicifyDistanceString(dist2Dest) + "\nleft");
             } else {
@@ -886,8 +886,20 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                             }
                         });
                     }
-                    //TODO: train
+
                     countSamples = 0;
+                    ++countTrain;
+
+                    //predict:
+                    if (!Python.isStarted()) {
+                        Python.start(new AndroidPlatform(getApplicationContext()));
+                    }
+                    Python py = Python.getInstance();
+
+                    PyObject predictPy = py.getModule("test").callAttr("predict",(Object) accQueue.getArray(),countTrain,accQueue.getHead());
+                    double predict = predictPy.toDouble();
+                    Log.d("velocity",""+predict);
+                    updateTexts(predict);
                 }
                 Log.d("BT", dataString);
             }
