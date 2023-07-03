@@ -126,6 +126,8 @@ def train(observation: np.ndarray, label: float, head=0, debug=False):
     print(f'{type(atb_file[0])=}')
     ATb_new = atb_file + machpela
     print('hi')
+    ata_inverse_file = ATA_inverse_new
+    atb_file = ATb_new
     return ATA_inverse_new, ATb_new, ATA_inverse_new @ ATb_new
 
 def big_matrix():
