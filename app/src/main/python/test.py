@@ -1,11 +1,5 @@
 import numpy as np
 import scipy
-import json
-
-def main():
-    A = np.eye(3)
-    return np.mean(A)
-
 
 def parse_data(data_array, start=0):
     """
@@ -36,8 +30,7 @@ def parse_data(data_array, start=0):
         Z[i] = float(values[2])
     return T, X, Y, Z
 
-
-def predict(full_vector_prediction, observation, num_samples, debug=False):
+def predict(full_vector_prediction, observation, num_samples, debug = False):
     # Transform the raw data to a feature vector
     if debug:
         transformed_observation = add_features_to_data(observation)
@@ -55,8 +48,9 @@ def add_features_to_data(observation: tuple):
     T, X, Y, Z = observation
     # Absolute values of accelerations
     A = acc_norm(X, Y, Z)
+    D = np.abs(np.diff(A))
     # Dominant frequency in the accelerations size
-    dom_freq = np.array([FFT(A, dt_sample=T[1]-T[0])])
+    dom_freq = np.array([FFT(A, dt_sample=T[1]-T[0]), FFT(D, dt_sample=T[1]-T[0])])
     # Integral for velocity, using the first 0.5327 seconds as indicator (based on trian data)
     integral_result = np.array([integrate_accelerations(0.5327 ,X, Y, Z)])
     # The difference of time from start to end
@@ -64,11 +58,9 @@ def add_features_to_data(observation: tuple):
     # Combine all results
     return np.concatenate((A, dom_freq, integral_result, delta_t))
 
-
 def acc_norm(X, Y, Z):
-    A = np.sqrt(X*2 + Y2 + Z*2)
+    A = np.sqrt(X**2 + Y**2 + Z**2)
     return A
-
 
 def FFT(signal, dt_sample=1/10, return_all=False, plot=False):
     # plot the FFT magnitudes
@@ -88,7 +80,6 @@ def FFT(signal, dt_sample=1/10, return_all=False, plot=False):
 
     return frequencies, fourier, dominant_frequency
 
-
 def integrate_accelerations(threshold, X, Y, Z, dt=0.1):
     v_x = simpson(X[0:int(threshold/dt)], dx=dt)
     v_y = simpson(Y[0:int(threshold/dt)], dx=dt)
@@ -97,6 +88,27 @@ def integrate_accelerations(threshold, X, Y, Z, dt=0.1):
     v_final = np.linalg.norm([v_x, v_y, v_z])
     return v_final
 
+def train(ATA_inverse: np.ndarray, ATb: np.ndarray, observation: np.ndarray, label: float, debug=False):
+    """
+    ATA_inverse = the (A.T @ A)^-1 of the old data, saved in firebase
+    ATb = the (A.T @ b) of the old data, saved in firebase
+    observation = the new observation we just had (ndarray of windowSize strings)
+    label = the GPS difference of distances from the start of sample to end (distance in km over the route needed)
+    return: the (A.T @ A)^-1 of the new data, the (A.T @ b) of the new data and the full multiplication
+    """
+    # Transform the raw data to a feature vector
+    if debug:
+        transformed_observation = add_features_to_data(observation)
+    else:
+        transformed_observation = add_features_to_data(parse_data(observation))
+    # Using the sherman-morrison formula, we solve the problem in O(n^2)
+    ATA_v = ATA_inverse @ transformed_observation
+    quad = transformed_observation.T @ ATA_inverse @ transformed_observation
+    ATA_inverse_new = ATA_inverse - np.outer(ATA_v, ATA_v) / quad
+    # Also calculate the value of the new ATb
+    ATb_new = ATb + label * transformed_observation
+    return ATA_inverse_new, ATb_new, ATA_inverse_new @ ATb_new
 
 def big_matrix():
-    return np.random.rand(102, 102).tolist()
+    A, x = np.ones((104, 104)), np.ones(104)
+    return A, x, A @ x

@@ -59,6 +59,7 @@ import android.Manifest;
 import android.os.Handler;
 import android.os.IBinder;
 import android.util.Log;
+import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -82,6 +83,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     private GoogleMap mMap;
     private ActivityMapsBinding binding;
+
+    private TextView txtViewSpeedKmh;
+    private TextView txtViewTimeLeft;
 
     private static final int MY_LOCATION_REQUEST_CODE = 99;  // Unique request code
     String MAPS_API_KEY = "AIzaSyBfX2PxYcxF3B-i9PNUwR-ocrhDEdD0MnA";
@@ -175,13 +179,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
 
     @Override
-    public void onBackPressed(){
-        super.onBackPressed();
-        Toast.makeText(getApplicationContext(), "pressed back lol!", Toast.LENGTH_SHORT).show();
-    }
-
-
-    @Override
     public void onStart() {
         super.onStart();
         if(service != null)
@@ -192,9 +189,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         }
 
 
-        initLastLocation();
+        // initLastLocation();
         //handler.post(runnableDist4Train);
-
 
     }
 
@@ -220,7 +216,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
 
         mAuth = FirebaseAuth.getInstance();
         this.currentUser = mAuth.getCurrentUser();
@@ -286,7 +281,10 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             Python.start(new AndroidPlatform(getApplicationContext()));
         }
         Python py = Python.getInstance();
-        PyObject pyBigMatrix = py.getModule("test").callAttr("big_matrix");
+        List<PyObject> pyMatVecVec = py.getModule("test").callAttr("big_matrix").asList();
+        PyObject pyBigMatrix = pyMatVecVec.get(0);
+        PyObject pyVector = pyMatVecVec.get(1);
+        PyObject pyVecProduct = pyMatVecVec.get(2);
         List<PyObject> pyList = pyBigMatrix.asList();
         List<List<Double>> javaList = new ArrayList<>();
 
@@ -299,11 +297,13 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             javaList.add(innerJavaList);
         }
 
-
-
         Log.d("wtf", javaList.toString());
 
         matrixRef.child("mat lol").setValue(javaList);
+        List<Double> javaVector = numpyVectorToJavaList(pyVector);
+        matrixRef.child("vector lol").setValue(javaVector);
+        List<Double> javaVectorProduct = numpyVectorToJavaList(pyVecProduct);
+        matrixRef.child("product lol").setValue(javaVectorProduct);
         //Python things:
 
 
@@ -325,7 +325,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             @Override
             public void onPlaceSelected(@NonNull Place place) {
                 // TODO: Get info about the selected place.
-                Log.i("wtf", "Place: " + place.getName() + ", " + place.getLatLng() + ", Openning hours: " + place.getOpeningHours() + ", Phone: " + place.getPhoneNumber());
                 onPlaceSelectedOrTouched(place.getLatLng());
             }
 
@@ -349,6 +348,15 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             // If permissions are already granted, initialize the map
             initMap();
         }
+    }
+
+    public static List<Double> numpyVectorToJavaList(PyObject pyVec) {
+        List<PyObject> PyList = pyVec.asList();
+        List<Double> javaList = new ArrayList<>();
+        for(PyObject pyDouble : PyList) {
+            javaList.add(pyDouble.toDouble());
+        }
+        return javaList;
     }
 
 
@@ -413,11 +421,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                                 // Got last known location. In some rare situations this can be null.
                                 if (location != null) {
                                     // Move the camera to the user's location and zoom in
-                                    mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(location.getLatitude(), location.getLongitude()), initialZoom));
-                                    // todo (Add a marker at the user's location)
-//                                    mMap.addMarker(new MarkerOptions()
-//                                            .position(new LatLng(location.getLatitude(), location.getLongitude()))
-//                                            .title("You are here"));
+                                    LatLng locationLatLng = new LatLng(location.getLatitude(), location.getLongitude());
+                                    lastLocation = locationLatLng;
+                                    mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(locationLatLng, initialZoom));
                                 }
                             }
                         });
@@ -439,7 +445,15 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         return activeNetworkInfo != null && activeNetworkInfo.isConnected();
     }
 
+    private void initializeTimeAndSpeedTextViews(){
+        txtViewTimeLeft = findViewById(R.id.txtViewTimeLeft);
+        txtViewSpeedKmh = findViewById(R.id.txtViewSpeedKmh);
+        txtViewTimeLeft.setVisibility(View.VISIBLE);
+        txtViewSpeedKmh.setVisibility(View.VISIBLE);
+    }
+
     public void onPlaceSelectedOrTouched(LatLng point){
+
         Log.d("wtf", "onPlaceSelectedOrTouched");
          if (!isNetworkAvailable()) {
              Toast.makeText(MapsActivity.this, "You don't have internet connection", Toast.LENGTH_SHORT).show();
@@ -526,7 +540,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 Log.d(TAG, "Distance: " + result);  // This will be distance in meters
                 dist2Dest = result;
                 TextView txtView = findViewById(R.id.simpleTextView);
-                txtView.setText("You have " + nicifyDistanceString(dist2Dest) + " left");
+                txtView.setText(nicifyDistanceString(dist2Dest) + "\nleft");
             } else {
                 Log.d(TAG, "Error in fetching distance");
             }
@@ -535,7 +549,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     /*
     Gets a Double that represents distance in meters and returns a nice string representation o it.
-    If the distance is more than 1000m, return in kms. Else, in meters.
+    If the distance is more than 1000m, return string in kms. Else, in meters.
     If the distance in meters is not actually an integer - rounds it.
      */
     private String nicifyDistanceString(Double distInMeteres){
@@ -946,7 +960,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 //Display in TextView the distance:
                 TextView txtView = findViewById(R.id.simpleTextView);
                 dist2Dest = distance;
-                txtView.setText("You have " + nicifyDistanceString(distance) + " left");
+                txtView.setText(nicifyDistanceString(distance) + "\nleft");
+                initializeTimeAndSpeedTextViews();
             }
         }
 

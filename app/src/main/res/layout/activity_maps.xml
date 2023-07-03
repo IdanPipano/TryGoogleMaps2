@@ -24,15 +24,53 @@
         android:layout_weight="7"
         tools:context=".MapsActivity" />
 
-    <TextView
-        android:id="@+id/simpleTextView"
+
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:text="DISIA is on fireeeee!"
-        android:gravity="center"
         android:layout_weight="1"
-        android:textSize="20sp"
-        android:textColor="@color/pink"/>
+        android:orientation="horizontal"
+        >
+
+        <TextView
+            android:id="@+id/simpleTextView"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:text="Search for a destination or click on the map"
+            android:gravity="center"
+            android:textSize="20sp"
+            android:textColor="@color/pink"/>
+
+        <TextView
+            android:id="@+id/txtViewTimeLeft"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:textSize="20sp"
+            android:text="initially hidden"
+            android:textColor="@color/purple"
+            android:visibility="gone"
+            />
+
+
+        <TextView
+            android:id="@+id/txtViewSpeedKmh"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:textSize="20sp"
+            android:textColor="@color/pink"
+            android:text="initially hidden"
+            android:visibility="gone"
+        />
+
+    </LinearLayout>
+
+
+
 
 
 
