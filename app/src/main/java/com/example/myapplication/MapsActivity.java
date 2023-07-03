@@ -258,21 +258,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 }
 
 
-
-//                Toast.makeText(getApplicationContext(), matrix.toString(), Toast.LENGTH_SHORT).show();
-//
-//                //Python things:
-//                if (!Python.isStarted()) {
-//                    Python.start(new AndroidPlatform(getApplicationContext()));
-//                }
-//
-//                Python py = Python.getInstance();
-//
-//                PyObject pyMatrix = py.getModule("numpy").callAttr("array", (Object) javaArray);
-//                PyObject pyMean = py.getModule("test").callAttr("matrix_mean", pyMatrix);
-//                Toast.makeText(getApplicationContext(), pyMean.toString(), Toast.LENGTH_SHORT).show();
-
-
                 if (!Python.isStarted()) {
                     Python.start(new AndroidPlatform(getApplicationContext()));
                 }
@@ -283,9 +268,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
                 Python py = Python.getInstance();
                 PyObject pyMatrix = py.getModule("numpy").callAttr("array", (Object) c.getArray());
-                PyObject pyMean = py.getModule("test").callAttr("parse_data", pyMatrix, c.getHead());
-                Toast.makeText(getApplicationContext(), pyMean.toString(), Toast.LENGTH_LONG).show();
-
+                PyObject pyParsedData = py.getModule("test").callAttr("parse_data", pyMatrix, c.getHead());
+                Log.d("wtf", pyParsedData.toString());
+                //PyObject prediczia = py.getModule("test").callAttr("predict", );
             }
 
             @Override
@@ -295,6 +280,30 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             }
         });
 
+        DatabaseReference matrixRef = database.getReference("MatrixTest");
+//        Log.d("wtf", matrixRef.toString());
+        if (!Python.isStarted()) {
+            Python.start(new AndroidPlatform(getApplicationContext()));
+        }
+        Python py = Python.getInstance();
+        PyObject pyBigMatrix = py.getModule("test").callAttr("big_matrix");
+        List<PyObject> pyList = pyBigMatrix.asList();
+        List<List<Double>> javaList = new ArrayList<>();
+
+        for(PyObject pyInnerList : pyList) {
+            List<PyObject> innerPyList = pyInnerList.asList();
+            List<Double> innerJavaList = new ArrayList<>();
+            for(PyObject pyDouble : innerPyList) {
+                innerJavaList.add(pyDouble.toDouble());
+            }
+            javaList.add(innerJavaList);
+        }
+
+
+
+        Log.d("wtf", javaList.toString());
+
+        matrixRef.child("mat lol").setValue(javaList);
         //Python things:
 
 
