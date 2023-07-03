@@ -17,7 +17,6 @@ import android.graphics.Color;
 import android.location.Address;
 import android.location.Geocoder;
 import android.location.Location;
-import android.location.LocationListener;
 import android.location.LocationManager;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
@@ -73,7 +72,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -116,6 +114,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private int countSamples = 0; //TODO every time reaches windowSize, call train and assign to it 0
     private boolean firstHundred = true;
     private double walkedInLastWindow = 0;
+    private int countTrain=0; // number of times we trained the model  //TODO: ++ every time we train
 
 
     Handler handler = new Handler();
@@ -150,32 +149,31 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
 
 
-    Runnable runnableDist4Train = new Runnable() {
-        @Override
-        public void run() {
-            // TODO: Implement your task logic here
-            if (ContextCompat.checkSelfPermission(MapsActivity.this, Manifest.permission.ACCESS_FINE_LOCATION)
-                    == PackageManager.PERMISSION_GRANTED) {
-                FusedLocationProviderClient fusedLocationClient = LocationServices.getFusedLocationProviderClient(MapsActivity.this);
-                fusedLocationClient.getLastLocation().addOnSuccessListener(MapsActivity.this, new OnSuccessListener<Location>() {
-                    @Override
-                    public void onSuccess(Location location) {
-                        if (location != null) {
-                            LatLng currentLocation = new LatLng(location.getLatitude(), location.getLongitude());
-                            //Log.d("wtf", "" + origin.latitude + ", " + origin.longitude);
-                            (new FetchDistForTrainTask()).execute(lastLocation, currentLocation);
-                            lastLocation = currentLocation;
-                        }
-                        else {
-                            Log.d("wtf", "location null in runnableDist4Dest run()");
-                        }
-                    }
-                });
-            // Call the postDelayed() method again to schedule the task after 10 seconds
-            handler.postDelayed(this, 10000);
-            }
-        }
-    };
+//    Runnable runnableDist4Train = new Runnable() {
+//        @Override
+//        public void run() {
+//            if (ContextCompat.checkSelfPermission(MapsActivity.this, Manifest.permission.ACCESS_FINE_LOCATION)
+//                    == PackageManager.PERMISSION_GRANTED) {
+//                FusedLocationProviderClient fusedLocationClient = LocationServices.getFusedLocationProviderClient(MapsActivity.this);
+//                fusedLocationClient.getLastLocation().addOnSuccessListener(MapsActivity.this, new OnSuccessListener<Location>() {
+//                    @Override
+//                    public void onSuccess(Location location) {
+//                        if (location != null) {
+//                            LatLng currentLocation = new LatLng(location.getLatitude(), location.getLongitude());
+//                            //Log.d("wtf", "" + origin.latitude + ", " + origin.longitude);
+//                            (new FetchDistForTrainTask()).execute(lastLocation, currentLocation);
+//                            lastLocation = currentLocation;
+//                        }
+//                        else {
+//                            Log.d("wtf", "location null in runnableDist4Dest run()");
+//                        }
+//                    }
+//                });
+//            // Call the postDelayed() method again to schedule the task after 10 seconds
+//            handler.postDelayed(this, 10000);
+//            }
+//        }
+//    };
 
 
     @Override
@@ -262,9 +260,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 c.add("9,10,11,12");
 
                 Python py = Python.getInstance();
-                PyObject pyMatrix = py.getModule("numpy").callAttr("array", (Object) c.getArray());
-                PyObject pyParsedData = py.getModule("test").callAttr("parse_data", pyMatrix, c.getHead());
-                Log.d("wtf", pyParsedData.toString());
+                PyObject pyParsedData = py.getModule("test").callAttr("parse_data", (Object) c.getArray(), c.getHead());
+                Log.d("wtf", "pyParsedData.toString(): " + pyParsedData.toString());
                 //PyObject prediczia = py.getModule("test").callAttr("predict", );
             }
 
@@ -282,28 +279,42 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         }
         Python py = Python.getInstance();
         List<PyObject> pyMatVecVec = py.getModule("test").callAttr("big_matrix").asList();
-        PyObject pyBigMatrix = pyMatVecVec.get(0);
+        PyObject pyMat = pyMatVecVec.get(0);
         PyObject pyVector = pyMatVecVec.get(1);
         PyObject pyVecProduct = pyMatVecVec.get(2);
-        List<PyObject> pyList = pyBigMatrix.asList();
-        List<List<Double>> javaList = new ArrayList<>();
 
-        for(PyObject pyInnerList : pyList) {
-            List<PyObject> innerPyList = pyInnerList.asList();
-            List<Double> innerJavaList = new ArrayList<>();
-            for(PyObject pyDouble : innerPyList) {
-                innerJavaList.add(pyDouble.toDouble());
-            }
-            javaList.add(innerJavaList);
-        }
+        CyclicArray<String> c = new CyclicArray<>(2);
+        c.add("1,2,3,4");
+        c.add("5,6,7,8");
+        c.add("9,10,11,12");
+        //use pyMat, pyVec to check Doron's train: (first generate observation)
+        PyObject trainResult = py.getModule("test").callAttr("train", pyMat, pyVector, (Object) c.getArray(), c.getHead(), 15);
+        PyObject resultMat = pyMatVecVec.get(0);
+        PyObject resultVector = pyMatVecVec.get(1);
+        PyObject resultVecProduct = pyMatVecVec.get(2);
+
+        List<List<Double>> javaList = numpyMatrixToJavaListList(pyMat);
 
         Log.d("wtf", javaList.toString());
 
-        matrixRef.child("mat lol").setValue(javaList);
+        matrixRef.child("mat rand").setValue(javaList);
         List<Double> javaVector = numpyVectorToJavaList(pyVector);
-        matrixRef.child("vector lol").setValue(javaVector);
+        matrixRef.child("vector rand").setValue(javaVector);
         List<Double> javaVectorProduct = numpyVectorToJavaList(pyVecProduct);
-        matrixRef.child("product lol").setValue(javaVectorProduct);
+        matrixRef.child("product rand").setValue(javaVectorProduct);
+
+
+        matrixRef.child("mat result").setValue(numpyMatrixToJavaListList(resultMat));
+        matrixRef.child("vector result").setValue(numpyVectorToJavaList(resultVector));
+        matrixRef.child("product result").setValue(numpyVectorToJavaList(resultVecProduct));
+
+
+        //check predict:
+
+        PyObject predictResult = py.getModule("test").callAttr("predict",resultVecProduct, c.getArray(), 2, c.getHead());
+        Log.d("wtf", "predicted " + predictResult.toString());
+        matrixRef.child("predictResult").setValue(predictResult.toDouble());
+
         //Python things:
 
 
@@ -348,6 +359,20 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             // If permissions are already granted, initialize the map
             initMap();
         }
+    }
+
+    public static List<List<Double>> numpyMatrixToJavaListList(PyObject pyMat) {
+        List<PyObject> pyList = pyMat.asList();
+        List<List<Double>> javaList = new ArrayList<>();
+        for(PyObject pyInnerList : pyList) {
+            List<PyObject> innerPyList = pyInnerList.asList();
+            List<Double> innerJavaList = new ArrayList<>();
+            for(PyObject pyDouble : innerPyList) {
+                innerJavaList.add(pyDouble.toDouble());
+            }
+            javaList.add(innerJavaList);
+        }
+        return javaList;
     }
 
     public static List<Double> numpyVectorToJavaList(PyObject pyVec) {
@@ -599,11 +624,16 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 JSONArray legs = routes.getJSONArray("elements");
                 JSONObject steps = legs.getJSONObject(0);
                 JSONObject distance = steps.getJSONObject("distance");
-                return distance.getDouble("value");  // in meters!!!
+                double dist = distance.getDouble("value")
+                return dist;  // in meters!!!
 
             } catch (Exception e) {
                 Log.e(TAG, "Error in fetching distance", e);
             }
+
+
+
+
 
             return null;
         }

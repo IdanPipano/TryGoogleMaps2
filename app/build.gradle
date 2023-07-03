@@ -22,7 +22,7 @@ android {
         }
 
         python {
-            buildPython "C:/Users/pipan/AppData/Local/Programs/Python/Python38/python.exe"
+            buildPython "C:/Python310/python.exe"
             pip {
                 install "numpy"
                 install "scipy"

@@ -1,5 +1,6 @@
 import numpy as np
-import scipy
+from scipy import interpolate
+from scipy import signal
 
 def parse_data(data_array, start=0):
     """
@@ -7,6 +8,7 @@ def parse_data(data_array, start=0):
     to represent where the data starts. Now we will change it into vectors of
     accelerations and time.
     """
+    data_array = np.array(data_array)
     length = len(data_array)
     observation = []
     non_None_values = 0
@@ -23,19 +25,19 @@ def parse_data(data_array, start=0):
     for i, value in enumerate(observation):
         value = value.replace("\r\n", "")
         values = value.split(",")
-        print(values)
+        #print(values)
         T[i] = float(values[3])
         X[i] = float(values[0])
         Y[i] = float(values[1])
         Z[i] = float(values[2])
     return T, X, Y, Z
 
-def predict(full_vector_prediction, observation, num_samples, debug = False):
+def predict(full_vector_prediction, observation, num_samples, head=0, debug=False):
     # Transform the raw data to a feature vector
     if debug:
         transformed_observation = add_features_to_data(observation)
     else:
-        transformed_observation = add_features_to_data(parse_data(observation))
+        transformed_observation = add_features_to_data(parse_data(observation, start=head))
     # Here are some constants
     average_speed = 4.82803
     unit_change = 3.6
@@ -52,11 +54,11 @@ def add_features_to_data(observation: tuple):
     # Dominant frequency in the accelerations size
     dom_freq = np.array([FFT(A, dt_sample=T[1]-T[0]), FFT(D, dt_sample=T[1]-T[0])])
     # Integral for velocity, using the first 0.5327 seconds as indicator (based on trian data)
-    integral_result = np.array([integrate_accelerations(0.5327 ,X, Y, Z)])
+    # integral_result = np.array([integrate_accelerations(0.5327 ,X, Y, Z)])
     # The difference of time from start to end
     delta_t = np.array([T[-1] - T[0]])
     # Combine all results
-    return np.concatenate((A, dom_freq, integral_result, delta_t))
+    return np.concatenate((A, dom_freq, delta_t))
 
 def acc_norm(X, Y, Z):
     A = np.sqrt(X**2 + Y**2 + Z**2)
@@ -80,15 +82,14 @@ def FFT(signal, dt_sample=1/10, return_all=False, plot=False):
 
     return frequencies, fourier, dominant_frequency
 
-def integrate_accelerations(threshold, X, Y, Z, dt=0.1):
-    v_x = simpson(X[0:int(threshold/dt)], dx=dt)
-    v_y = simpson(Y[0:int(threshold/dt)], dx=dt)
-    v_z = simpson(Z[0:int(threshold/dt)], dx=dt)
+# def integrate_accelerations(threshold, X, Y, Z, dt=0.1):
+#     v_x = scipy.integrate.trapezoid(X[0:int(threshold/dt)], dx=dt)
+#     v_y = scipy.integrate.trapezoid(Y[0:int(threshold/dt)], dx=dt)
+#     v_z = scipy.integrate.trapezoid(Z[0:int(threshold/dt)], dx=dt)
+#     v_final = np.linalg.norm([v_x, v_y, v_z])
+#     return v_final
 
-    v_final = np.linalg.norm([v_x, v_y, v_z])
-    return v_final
-
-def train(ATA_inverse: np.ndarray, ATb: np.ndarray, observation: np.ndarray, label: float, debug=False):
+def train(ATA_inverse: np.ndarray, ATb: np.ndarray, observation: np.ndarray, label: float, head=0, debug=False):
     """
     ATA_inverse = the (A.T @ A)^-1 of the old data, saved in firebase
     ATb = the (A.T @ b) of the old data, saved in firebase
@@ -100,7 +101,11 @@ def train(ATA_inverse: np.ndarray, ATb: np.ndarray, observation: np.ndarray, lab
     if debug:
         transformed_observation = add_features_to_data(observation)
     else:
-        transformed_observation = add_features_to_data(parse_data(observation))
+        transformed_observation = add_features_to_data(parse_data(observation, start=head))
+    print("parse_data(observation, start=head)")
+    print(parse_data(observation, start=head))
+    print(transformed_observation)
+    print(transformed_observation.shape)
     # Using the sherman-morrison formula, we solve the problem in O(n^2)
     ATA_v = ATA_inverse @ transformed_observation
     quad = transformed_observation.T @ ATA_inverse @ transformed_observation
@@ -110,5 +115,6 @@ def train(ATA_inverse: np.ndarray, ATb: np.ndarray, observation: np.ndarray, lab
     return ATA_inverse_new, ATb_new, ATA_inverse_new @ ATb_new
 
 def big_matrix():
-    A, x = np.ones((104, 104)), np.ones(104)
+    # print(scipy.__version__)
+    A, x = np.random.rand(5, 5), np.random.rand(5)
     return A, x, A @ x
