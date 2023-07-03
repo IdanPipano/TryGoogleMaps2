@@ -43,11 +43,17 @@ public class HomePageActivity extends AppCompatActivity {
                         String userName = user.getUserName();
                         Log.d("wtf", "userName= " + userName);
                         // Now you have the username, do whatever you want with it
+
                         FragmentContainerView fragmentContainer = findViewById(R.id.loggedInFragmentContainerView);
                         //LoggedInFragment loggedInFragment = ;
                         FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
                         transaction.replace(R.id.loggedInFragmentContainerView, LoggedInFragment.newInstance(userName));
-                        transaction.commit();
+                        try{
+                            transaction.commit();
+                        }
+                        catch (Exception e) {
+                            e.printStackTrace();
+                        }
                     }
                 }
 

@@ -2,27 +2,10 @@ import numpy as np
 from scipy import interpolate
 from scipy import signal
 
-# class myModel:
-#     self.x = 0
-#
-#     def __init__(self):
-#         self.x=0
-#
-#     def update_x(self):
-#         self.x = self.x + 1
-#
-#     def get_x(self):
-#         return self.x
 
-x = 0
 
-def x_plus_1():
-    global x
-    x = x + 1
-
-def get_x():
-    global x
-    return x
+ata_inverse_file = np.zeros((203, 203))
+atb_file = np.zeros(203)
 
 
 def parse_data(data_array, start=0):
@@ -112,7 +95,7 @@ def FFT(signal, dt_sample=1/10, return_all=False, plot=False):
 #     v_final = np.linalg.norm([v_x, v_y, v_z])
 #     return v_final
 
-def train(ATA_inverse: np.ndarray, ATb: np.ndarray, observation: np.ndarray, label: float, head=0, debug=False):
+def train(observation: np.ndarray, label: float, head=0, debug=False):
     """
     ATA_inverse = the (A.T @ A)^-1 of the old data, saved in firebase
     ATb = the (A.T @ b) of the old data, saved in firebase
@@ -121,6 +104,8 @@ def train(ATA_inverse: np.ndarray, ATb: np.ndarray, observation: np.ndarray, lab
     return: the (A.T @ A)^-1 of the new data, the (A.T @ b) of the new data and the full multiplication
     """
     # Transform the raw data to a feature vector
+    global ata_inverse_file
+    global atb_file
     if debug:
         transformed_observation = add_features_to_data(observation)
     else:
@@ -130,11 +115,11 @@ def train(ATA_inverse: np.ndarray, ATb: np.ndarray, observation: np.ndarray, lab
     print(transformed_observation)
     print(transformed_observation.shape)
     # Using the sherman-morrison formula, we solve the problem in O(n^2)
-    ATA_v = ATA_inverse @ transformed_observation
-    quad = transformed_observation.T @ ATA_inverse @ transformed_observation
-    ATA_inverse_new = ATA_inverse - np.outer(ATA_v, ATA_v) / quad
+    ATA_v = ata_inverse_file @ transformed_observation
+    quad = transformed_observation.T @ ata_inverse_file @ transformed_observation
+    ATA_inverse_new = ata_inverse_file - np.outer(ATA_v, ATA_v) / quad
     # Also calculate the value of the new ATb
-    ATb_new = ATb + label * transformed_observation
+    ATb_new = atb_file + label * transformed_observation
     return ATA_inverse_new, ATb_new, ATA_inverse_new @ ATb_new
 
 def big_matrix():
@@ -144,3 +129,16 @@ def big_matrix():
 
 def randomMatVec(num_features):
     return np.random.rand(num_features, num_features), np.random.rand(num_features)
+
+def get_matrix(vec, i):
+    print(f'{type(vec)=}')
+    print(f'{type(i)=}')
+    print(f'{vec=}')
+    global ata_inverse_file
+    x = np.array(vec)
+    ata_inverse_file[int(i)] = x
+
+def get_atb(vec):
+    global atb_file
+    atb_file = np.array(vec)
+

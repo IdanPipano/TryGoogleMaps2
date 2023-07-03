@@ -122,6 +122,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
 
     List<List<Double>> ata_inverse;
+    List<Double> atb;
 
 
     Handler handler = new Handler();
@@ -218,16 +219,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         // initLastLocation();
         //handler.post(runnableDist4Train);
 
-        if (!Python.isStarted()) {
-            Python.start(new AndroidPlatform(getApplicationContext()));
-        }
-        Python py = Python.getInstance();
-        py.getModule("test").callAttr("x_plus_1");
-        py.getModule("test").callAttr("x_plus_1");
-        py.getModule("test").callAttr("x_plus_1");
-        PyObject pyObject = py.getModule("test").callAttr("get_x");
-        Log.d("checkX", pyObject.toDouble()+"");
-
 
     }
 
@@ -279,7 +270,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 List<List<Double>> matrix = user.getMatrix();
                 ata_inverse = user.getAta_inverse();
                 Log.d("matrix", ata_inverse.toString());
-                //List<Double> atb = user.getAtb();
+                atb = user.getAtb();
 
                 //Convert the matrix to a nested Java array
                 double[][] javaArray = new double[matrix.size()][];
@@ -296,15 +287,20 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 if (!Python.isStarted()) {
                     Python.start(new AndroidPlatform(getApplicationContext()));
                 }
-                CyclicArray<String> c = new CyclicArray<>(2);
-                c.add("1,2,3,4");
-                c.add("5,6,7,8");
-                c.add("9,10,11,12");
-
+//                CyclicArray<String> c = new CyclicArray<>(2);
+//                c.add("1,2,3,4");
+//                c.add("5,6,7,8");
+//                c.add("9,10,11,12");
                 Python py = Python.getInstance();
-                PyObject pyParsedData = py.getModule("test").callAttr("parse_data", (Object) c.getArray(), c.getHead());
-                Log.d("wtf", "pyParsedData.toString(): " + pyParsedData.toString());
+//                PyObject pyParsedData = py.getModule("test").callAttr("parse_data", (Object) c.getArray(), c.getHead());
+//                Log.d("wtf", "pyParsedData.toString(): " + pyParsedData.toString());
                 //PyObject prediczia = py.getModule("test").callAttr("predict", );
+
+                for(int i = 0; i < ata_inverse.size(); i++){
+                    py.getModule("test").callAttr("get_matrix", ata_inverse.get(i).toArray(), i);
+                }
+                py.getModule("test").callAttr("get_atb", atb);
+
             }
 
             @Override
