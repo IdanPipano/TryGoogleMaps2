@@ -5,21 +5,21 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     tools:context=".HomePageActivity"
-    android:background="@drawable/gaga_judas"
+    android:background="@drawable/img"
     android:orientation="vertical">
 
 
-    <TextView
-        android:id="@+id/welcome_txtView"
-        android:layout_width="wrap_content"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:text="@string/welcome_message"
-        android:breakStrategy="balanced"
-        android:layout_gravity="center"
-        android:gravity="center"
-        android:textSize="40sp"
-        android:textColor="@color/pink"/>
+<!--    <TextView-->
+<!--        android:id="@+id/welcome_txtView"-->
+<!--        android:layout_width="wrap_content"-->
+<!--        android:layout_height="0dp"-->
+<!--        android:layout_weight="1"-->
+<!--        android:text="@string/welcome_message"-->
+<!--        android:breakStrategy="balanced"-->
+<!--        android:layout_gravity="center"-->
+<!--        android:gravity="center"-->
+<!--        android:textSize="40sp"-->
+<!--        android:textColor="@color/pink"/>-->
 
     <TextView
         android:id="@+id/description_txtView"
@@ -30,8 +30,20 @@
         android:breakStrategy="balanced"
         android:layout_gravity="center"
         android:gravity="center"
+        android:textSize="25sp"
+        android:textColor="@color/black"/>
+
+    <TextView
+        android:id="@+id/stamRevax"
+        android:layout_width="wrap_content"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:text=""
+        android:breakStrategy="balanced"
+        android:layout_gravity="center"
+        android:gravity="center"
         android:textSize="20sp"
-        android:textColor="@color/purple"/>
+        android:textColor="@color/black"/>
 
     <androidx.fragment.app.FragmentContainerView
         android:id="@+id/loggedInFragmentContainerView"

@@ -139,7 +139,8 @@ def big_matrix():
     return A, x, A @ x
 
 def randomMatVec(num_features):
-    return np.random.rand(num_features, num_features), np.random.rand(num_features)
+    epsilon = 0.000001
+    return epsilon * np.eye(num_features), np.ones(num_features)
 
 def get_matrix(vec, i):
     global ata_inverse_file

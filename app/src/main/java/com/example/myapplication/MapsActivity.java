@@ -14,6 +14,7 @@ import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import java.text.DecimalFormat;
 import android.location.Address;
 import android.location.Geocoder;
 import android.location.Location;
@@ -155,8 +156,13 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     public void updateTexts(double speed){
         //gets speed in km/h
+
+        DecimalFormat df = new DecimalFormat("0.0");
+
+        String formattedSpeed = df.format(speed);
+
         txtViewSpeedKmh = findViewById(R.id.txtViewSpeedKmh);
-        txtViewSpeedKmh.setText(String.valueOf(speed) + "\nkm/h");
+        txtViewSpeedKmh.setText(formattedSpeed + "\nkm/h");
 
         double hoursLeft = (dist2Dest / 1000) / speed;
         Log.d("displayTime", "minutesLeft = " + hoursLeft*60 + " dist2Dest = " + dist2Dest);
@@ -693,7 +699,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         protected void onPostExecute(Double result) {
             if (result != null) { // result is the distance in meters from the last location to the current location
                 walkedInLastWindow = result;
-                Toast.makeText(getApplicationContext(),"You walked " + result + " meters (GoogleMaps)", Toast.LENGTH_SHORT).show();
+//                Toast.makeText(getApplicationContext(),"You walked " + result + " meters (GoogleMaps)", Toast.LENGTH_SHORT).show();
             } else {
                 Log.d("wtf", "Error in fetching distance");
             }
@@ -890,6 +896,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     countSamples = 0;
                     ++countTrain;
 
+
+                }
+                Log.d("BT", dataString);
+
+                if (countSamples % 20 == 0) {
                     //predict:
                     if (!Python.isStarted()) {
                         Python.start(new AndroidPlatform(getApplicationContext()));
@@ -901,7 +912,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     Log.d("velocity",""+predict);
                     updateTexts(predict);
                 }
-                Log.d("BT", dataString);
             }
 
         }
